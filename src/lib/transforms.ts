@@ -1,0 +1,18 @@
+export const transformApiPerfume = (p: any) => ({
+  id: p.id,
+  name: p.name,
+  price: Number(p.price || 0),
+  originalPrice: p.original_price || undefined,
+  category: p.category || 'Uncategorized',
+  fragranceType: p.fragranceType || p.fragrance_type || 'All',
+  description: p.description || '',
+  image: p.photo_url || p.image || '',
+  rating: p.rating ?? 5,
+  reviews: p.reviews ?? 0,
+  notes: p.notes || { top: [], heart: [], base: [] },
+  sizes: p.sizes || ['50ml'],
+  inStock: p.quantity ? p.quantity > 0 : true,
+  isNew: p.is_new ?? false,
+  isBestSeller: p.is_best_seller ?? false,
+  isSale: p.is_sale ?? false,
+});

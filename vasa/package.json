@@ -1,0 +1,25 @@
+{
+  "name": "vasa",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.0.0",
+    "axios": "^0.21.1",
+    "tailwindcss": "^2.2.19"
+  },
+  "devDependencies": {
+    "typescript": "^4.4.3",
+    "vite": "^2.6.4",
+    "eslint": "^7.32.0",
+    "jest": "^27.0.6",
+    "eslint-plugin-react": "^7.27.1"
+  }
+}
