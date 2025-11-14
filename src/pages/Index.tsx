@@ -160,7 +160,7 @@ const Index = () => {
       <main className="flex-1">
         <HeroCarousel />
         {/* Best Sellers Section */}
-        <section className="container mx-auto px-4 py-16">
+        <section id="best-sellers" className="container mx-auto px-4 py-16">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl md:text-4xl font-bold">Best Sellers</h2>
             {bestSellers.length > 4 && (
@@ -200,7 +200,7 @@ const Index = () => {
         </section>
 
         {/* New Arrivals Section */}
-        <section className="container mx-auto px-4 py-16 bg-muted">
+        <section id="new-arrivals" className="container mx-auto px-4 py-16 bg-muted">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl md:text-4xl font-bold">New Arrivals</h2>
             {newArrivals.length > 4 && (
@@ -237,7 +237,7 @@ const Index = () => {
         </section>
 
         {/* Special Offers Section */}
-        <section className="container mx-auto px-4 py-16">
+        <section id="special-offers" className="container mx-auto px-4 py-16">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl md:text-4xl font-bold">Special Offers</h2>
             {specialOffers.length > 4 && (

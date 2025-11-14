@@ -192,12 +192,12 @@ export default function Checkout() {
   // Debug: log payload so you can inspect what will be sent to the backend
   console.debug('Checkout payload', orderData);
 
-  // Send the order payload to the backend directly (include Bearer token)
+  // Send the order payload to the backend directly (include raw token)
   const res = await fetch(`${API_BASE}/orders`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token as string}`
+      'Authorization': token as string
     },
     body: JSON.stringify(orderData)
   });

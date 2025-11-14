@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import Footer from "../components/Footer.tsx";
@@ -16,6 +16,11 @@ export default function Login() {
   const [role, setRole] = useState("customer");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Scroll to top on component mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -351,6 +356,7 @@ export default function Login() {
               Don’t have an account?{" "}
               <Link
                 to="/signup"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 style={{
                   fontWeight: 500,
                   color: "#d4a017",

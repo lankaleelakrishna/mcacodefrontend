@@ -66,19 +66,19 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">
+            <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               Home
             </Link>
-            <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors">
+            <Link to="/products" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               Products
             </Link>
-            <Link to="/collections" className="text-sm font-medium hover:text-primary transition-colors">
+            <Link to="/collections" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               Collections
             </Link>
-            <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors">
+            <Link to="/about" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               About
             </Link>
-            <Link to="/contact" className="text-sm font-medium hover:text-primary transition-colors">
+            <Link to="/contact" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               Contact
             </Link>
           </div>
@@ -91,6 +91,7 @@ const Navbar = () => {
                 size="sm"
                 className="hidden md:inline-flex"
                 onClick={() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   if (!isAuthenticated) {
                     navigate('/login');
                     return;
@@ -109,6 +110,7 @@ const Navbar = () => {
                   size="icon" 
                   className="relative"
                   onClick={() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                     if (!isAuthenticated) {
                       navigate('/login');
                       return;
@@ -189,16 +191,16 @@ const Navbar = () => {
                         My Orders
                       </Button>
 
-                      <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => { setShowAccountMenu(false); logout(); }}>
+                      <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => { setShowAccountMenu(false); logout(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                         Logout
                       </Button>
                     </div>
                   ) : (
                     <>
-                      <Link to="/login" className="block px-4 py-2 hover:bg-gray-100 text-sm" onClick={() => setShowAccountMenu(false)}>
+                      <Link to="/login" className="block px-4 py-2 hover:bg-gray-100 text-sm" onClick={() => { setShowAccountMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                         Login
                       </Link>
-                      <Link to="/signup" className="block px-4 py-2 hover:bg-gray-100 text-sm" onClick={() => setShowAccountMenu(false)}>
+                      <Link to="/signup" className="block px-4 py-2 hover:bg-gray-100 text-sm" onClick={() => { setShowAccountMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                         Sign Up
                       </Link>
                     </>
@@ -218,30 +220,35 @@ const Navbar = () => {
                 <div className="flex flex-col space-y-6 mt-8">
                   <Link
                     to="/"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="text-lg font-medium hover:text-primary transition-colors"
                   >
                     Home
                   </Link>
                   <Link
                     to="/products"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="text-lg font-medium hover:text-primary transition-colors"
                   >
                     Products
                   </Link>
                   <Link
                     to="/collections"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="text-lg font-medium hover:text-primary transition-colors"
                   >
                     Collections
                   </Link>
                   <Link
                     to="/about"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="text-lg font-medium hover:text-primary transition-colors"
                   >
                     About
                   </Link>
                   <Link
                     to="/contact"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="text-lg font-medium hover:text-primary transition-colors"
                   >
                     Contact
@@ -250,24 +257,24 @@ const Navbar = () => {
                     {isAuthenticated ? (
                       <>
                         <div className="px-2 py-1 text-sm font-medium">{user?.username}</div>
-                        <Link to="/recent-orders" onClick={() => { /* close sheet by navigation */ }}>
+                        <Link to="/recent-orders" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                           <Button variant="outline" className="w-full justify-start mt-2" size="lg">
                             My Orders
                           </Button>
                         </Link>
-                        <Button variant="outline" className="w-full justify-start mt-2" size="lg" onClick={logout}>
+                        <Button variant="outline" className="w-full justify-start mt-2" size="lg" onClick={() => { logout(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                           Logout
                         </Button>
                       </>
                     ) : (
                       <>
-                        <Link to="/login">
+                        <Link to="/login" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                           <Button variant="outline" className="w-full justify-start" size="lg">
                             <User className="mr-2 h-5 w-5" />
                             Login
                           </Button>
                         </Link>
-                        <Link to="/signup">
+                        <Link to="/signup" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                           <Button variant="secondary" className="w-full justify-start" size="lg">
                             Sign Up
                           </Button>

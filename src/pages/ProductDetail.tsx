@@ -25,6 +25,11 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [relatedProducts, setRelatedProducts] = useState([]);
 
+  // Scroll to top when product ID changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [id]);
+
   useEffect(() => {
     const loadProduct = async () => {
       try {

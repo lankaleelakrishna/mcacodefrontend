@@ -166,7 +166,16 @@ export function CartProvider({ children }) {
     try {
       setIsLoading(true);
       for (const item of cartItems) {
-        await ApiClient.removeFromCart(item.perfume_id, token);
+        try {
+          await ApiClient.removeFromCart(item.perfume_id, token);
+        } catch (err) {
+          // Ignore 404 (item not in cart) errors during clearing — proceed to clear local state
+          if (err instanceof Error && /404|not in your cart/i.test(err.message)) {
+            console.debug(`Item ${item.perfume_id} not in cart, skipping.`);
+          } else {
+            throw err; // Re-throw other errors
+          }
+        }
       }
       setCartItems([]);
     } catch (error) {

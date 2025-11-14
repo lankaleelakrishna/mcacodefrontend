@@ -2,8 +2,29 @@ import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Footer = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavigation = (path: string, sectionId?: string) => {
+    // If we're already on the home page and sectionId is provided, scroll to that section
+    if (location.pathname === '/' && sectionId) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+      return;
+    }
+    
+    // Otherwise navigate to the path
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(path);
+  };
   return (
     <footer className="bg-card border-t">
       <div className="container mx-auto px-4 py-12 md:py-16">
@@ -33,10 +54,10 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold text-lg mb-4">Shop</h4>
             <ul className="space-y-2 text-muted-foreground">
-              <li><a href="/products" className="hover:text-primary transition-colors">All Products</a></li>
-              <li><a href="/products?section=best-sellers" className="hover:text-primary transition-colors">Best Sellers</a></li>
-              <li><a href="/products?section=new-arrivals" className="hover:text-primary transition-colors">New Arrivals</a></li>
-              <li><a href="/products?section=special-offers" className="hover:text-primary transition-colors">Special Offers</a></li>
+              <li><button onClick={() => handleNavigation('/products')} className="hover:text-primary transition-colors text-left">All Products</button></li>
+              <li><button onClick={() => handleNavigation('/', 'best-sellers')} className="hover:text-primary transition-colors text-left">Best Sellers</button></li>
+              <li><button onClick={() => handleNavigation('/', 'new-arrivals')} className="hover:text-primary transition-colors text-left">New Arrivals</button></li>
+              <li><button onClick={() => handleNavigation('/', 'special-offers')} className="hover:text-primary transition-colors text-left">Special Offers</button></li>
             </ul>
           </div>
 
@@ -44,11 +65,10 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold text-lg mb-4">Customer Care</h4>
             <ul className="space-y-2 text-muted-foreground">
-              <li><a href="#" className="hover:text-primary transition-colors">Contact Us</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Shipping & Returns</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">FAQ</a></li>
+              <li><button onClick={() => handleNavigation('/contact')} className="hover:text-primary transition-colors text-left">Contact Us</button></li>
+              <li><button onClick={() => handleNavigation('/', 'faq')} className="hover:text-primary transition-colors text-left">FAQ</button></li>
               <li><a href="#" className="hover:text-primary transition-colors">Size Guide</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Track Order</a></li>
+              <li><button onClick={() => handleNavigation('/orders')} className="hover:text-primary transition-colors text-left">Track Order</button></li>
             </ul>
           </div>
 
@@ -86,9 +106,9 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <p>&copy; 2025 MCA Fashion. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a>
-            <a href="/terms" className="hover:text-primary transition-colors">Terms of Service</a>
-            <a href="/cookies" className="hover:text-primary transition-colors">Cookie Policy</a>
+            <button onClick={() => handleNavigation('/privacy')} className="hover:text-primary transition-colors text-left">Privacy Policy</button>
+            <button onClick={() => handleNavigation('/terms')} className="hover:text-primary transition-colors text-left">Terms of Service</button>
+            <button onClick={() => handleNavigation('/cookies')} className="hover:text-primary transition-colors text-left">Cookie Policy</button>
           </div>
         </div>
       </div>

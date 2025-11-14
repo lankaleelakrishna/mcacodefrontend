@@ -23,6 +23,11 @@ export default function Signup() {
     document.getElementById("username")?.focus();
   }, []);
 
+  // Scroll to top on component mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -176,7 +181,13 @@ export default function Signup() {
           <div style={{ marginTop: "1rem", textAlign: "center" }}>
             <p style={{ fontSize: "0.875rem", color: "#7f8c8d" }}>
               Already have an account?{' '}
-              <Link to="/login" style={{ fontWeight: 500, color: "#d4a017", textDecoration: "none" }}>Log in</Link>
+              <Link 
+                to="/login" 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                style={{ fontWeight: 500, color: "#d4a017", textDecoration: "none" }}
+              >
+                Log in
+              </Link>
             </p>
           </div>
         </div>

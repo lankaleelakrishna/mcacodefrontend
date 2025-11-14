@@ -67,8 +67,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
       totalPrice: product.price
     };
     sessionStorage.setItem('checkout-item', JSON.stringify(singleItemCart));
-    // Immediately redirect to checkout
+    // Immediately redirect to checkout and scroll to top smoothly
     navigate('/checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (

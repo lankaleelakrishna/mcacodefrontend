@@ -47,9 +47,14 @@ export class ApiClient {
   private static mapCategory(category: string): string {
     // Map backend category to frontend category format
     const categoryMap: Record<string, string> = {
+      // legacy/general mappings
       'men': 'Men',
       'women': 'Women',
-      'unisex': 'Unisex'
+      'unisex': 'Unisex',
+      // project-specific categories
+      'tops': 'Tops',
+      'lehangas': 'Lehangas',
+      'sarees': 'Sarees'
     };
     return categoryMap[category.toLowerCase()] || category;
   }

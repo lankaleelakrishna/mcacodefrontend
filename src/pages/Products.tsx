@@ -185,9 +185,9 @@ const Products = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Men">Men</SelectItem>
-                <SelectItem value="Women">Women</SelectItem>
-                <SelectItem value="Unisex">Unisex</SelectItem>
+                <SelectItem value="Tops">Tops</SelectItem>
+                <SelectItem value="Lehangas">Lehangas</SelectItem>
+                <SelectItem value="Sarees">Sarees</SelectItem>
               </SelectContent>
             </Select>
 

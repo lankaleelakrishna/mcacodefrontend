@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import {
   Form,
   FormField,
@@ -17,26 +18,109 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiClient } from "@/lib/api-client";
 
-const emptyForm = { id: null, title: "", price: "", description: "", image: "" };
+const emptyForm = { id: null, title: "", price: "", description: "", image: "", discounted_price: "", discount_percentage: "", end_date: "" };
 
 export default function AdminProducts() {
+  const navigate = useNavigate();
   const { token } = useAuth();
   const [products, setProducts] = useState([]);
   const [file, setFile] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [productDescriptions, setProductDescriptions] = useState({});
+
+  const handleAddToBestSeller = async (product) => {
+    // Add product to best sellers queue (allow multiple)
+    const formData = new FormData();
+    formData.append('id', String(product.id));
+    formData.append('is_best_seller', 'true');
+
+    try {
+      const key = 'addedBestSellers';
+      const existing = JSON.parse(sessionStorage.getItem(key) || '[]');
+      const toAdd = { ...product, is_best_seller: true };
+
+      // Only add if not already present
+      const alreadyQueued = existing.some(x => x.id === toAdd.id);
+      const updatedQueue = alreadyQueued ? existing : [...existing, toAdd];
+      sessionStorage.setItem(key, JSON.stringify(updatedQueue));
+
+      await ApiClient.adminUpdatePerfumeBestSeller(formData, token);
+
+      // Update local UI state so button disables
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_best_seller: true } : p));
+
+      // Optionally show a toast or message here
+      // alert('Added to Best Sellers!');
+    } catch (err) {
+      console.error('Error adding to best sellers:', err);
+      alert('Failed to add to best sellers');
+    }
+  };
 
   useEffect(() => {
     // load products from backend (admin)
     const load = async () => {
+      if (!token) {
+        console.error('No auth token available');
+        return;
+      }
+      
+      // Load descriptions from localStorage
+      let localDescriptions = {};
       try {
-        const res = await ApiClient.adminGetPerfumes(token);
-        if (res && res.perfumes) setProducts(res.perfumes);
+        const stored = localStorage.getItem('productDescriptions');
+        if (stored) {
+          localDescriptions = JSON.parse(stored);
+          console.log('[AdminProducts] Loaded descriptions from localStorage:', localDescriptions);
+          setProductDescriptions(localDescriptions);
+        }
       } catch (e) {
+        console.error('Error loading descriptions from localStorage:', e);
+      }
+      
+      try {
+        console.log('Loading admin products with token:', token);
+        const res = await ApiClient.adminGetPerfumes(token);
+        console.log('Admin products response:', res);
+        
+        if (res && res.perfumes) {
+          setProducts(res.perfumes);
+          console.log('Set products:', res.perfumes);
+          
+          // Debug: log ALL fields for first product to find image field
+          try {
+            if (res.perfumes.length > 0) {
+              const firstProduct = res.perfumes[0];
+              const keys = Object.keys(firstProduct);
+              console.log('[AdminProducts:FIRST_PRODUCT_ALL_KEYS]', keys);
+              console.log('[AdminProducts:FIRST_PRODUCT_FULL]', firstProduct);
+              res.perfumes.slice(0, 5).forEach((p, idx) => {
+                console.log(`[AdminProducts:Product${idx}]`, {
+                  id: p.id,
+                  name: p.name,
+                  title: p.title,
+                  description: p.description,
+                  allKeys: Object.keys(p),
+                });
+              });
+            }
+          } catch (e) {
+            console.error('Error logging product debug info', e);
+          }
+        } else {
+          console.warn('No products in response:', res);
+          setProducts([]);
+        }
+      } catch (e) {
+        console.error('Failed to load admin products:', e);
         // fallback to localStorage if backend unavailable
         try {
           const raw = localStorage.getItem('admin_products_v1');
-          setProducts(raw ? JSON.parse(raw) : []);
-        } catch {
+          const fallbackProducts = raw ? JSON.parse(raw) : [];
+          console.log('Using fallback products:', fallbackProducts);
+          setProducts(fallbackProducts);
+        } catch (storageError) {
+          console.error('Fallback also failed:', storageError);
           setProducts([]);
         }
       }
@@ -50,111 +134,239 @@ export default function AdminProducts() {
       price: "",
       image: "",
       description: "",
-      quantity: 100,
-      category: 'tops',
+  quantity: 100,
+  category: 'tops',
+      size: [],
       top_notes: '',
       heart_notes: '',
       base_notes: '',
     },
   });
+  const { reset, control, setValue, getValues } = form;
+  // Local sizes state to keep checkbox UI and form in sync
+  const [sizesSelected, setSizesSelected] = useState([]);
+  useEffect(() => {
+    reset({
+      title: "",
+      price: "",
+      image: "",
+      description: "",
+      quantity: 100,
+      category: "tops",
+      size: [],
+      top_notes: "",
+      heart_notes: "",
+      base_notes: "",
+      discounted_price: "",
+      end_date: "",
+    });
+    if (import.meta.env.DEV) console.log('[AdminProducts] form reset on products change');
+  }, [products]);
 
-  const { reset, control } = form;
+  useEffect(() => {
+    reset({
+      title: "",
+      price: "",
+      image: "",
+      description: "",
+      quantity: 100,
+      category: "tops",
+      size: [],
+      top_notes: "",
+      heart_notes: "",
+      base_notes: "",
+      discounted_price: "",
+      end_date: ""
+    });
+  }, []);
 
   const onSubmit = async (data) => {
     const title = (data.title || "").trim();
     if (!title) return alert("Title is required");
-
-    if (!token) {
-      alert('Admin token missing or expired. Please login again.');
-      return;
-    }
-
     try {
+      // IMPORTANT: Cache the description IMMEDIATELY before sending to backend
+      // This ensures descriptions persist even if backend doesn't return them
+      if (data.description) {
+        const updatedDescriptions = { ...productDescriptions };
+        if (editingId) {
+          // For edits, we have the ID, so save immediately
+          updatedDescriptions[editingId] = data.description;
+          console.log('[AdminProducts] Pre-cached description for EDITING ID', editingId, ':', data.description);
+        } else {
+          // For new products, store with a temp key that we'll update later
+          // We'll use a composite key: timestamp + title to avoid collisions
+          const tempKey = `temp_${Date.now()}_${title.replace(/\s+/g, '_')}`;
+          updatedDescriptions[tempKey] = data.description;
+          console.log('[AdminProducts] Pre-cached description with temp key', tempKey, ':', data.description);
+        }
+        setProductDescriptions(updatedDescriptions);
+        try {
+          localStorage.setItem('productDescriptions', JSON.stringify(updatedDescriptions));
+          console.log('[AdminProducts] Pre-cached descriptions:', updatedDescriptions);
+        } catch (e) {
+          console.error('Error pre-caching descriptions:', e);
+        }
+      }
+      
       const form = new FormData();
       // backend expects name price description quantity category size etc.
       form.append('name', title);
       form.append('price', String(data.price || '0'));
       form.append('description', data.description || '');
       form.append('quantity', String(data.quantity ?? 100));
-  form.append('category', data.category || 'tops');
+      
+      // Always send both regular price and special offer price
+      form.append('original_price', String(data.price || '0')); // Regular price
+      form.append('price', String(data.price || '0')); // Current price
+      
+      // If there's a special offer
+      if (data.discounted_price && Number(data.discounted_price) < Number(data.price)) {
+        form.append('discounted_price', String(data.discounted_price));
+        form.append('price', String(data.discounted_price)); // Set current price to discounted price
+        
+        // Calculate discount percentage
+        const originalPrice = Number(data.price);
+        const discountedPrice = Number(data.discounted_price);
+        const discountPercentage = ((originalPrice - discountedPrice) / originalPrice) * 100;
+        form.append('discount_percentage', String(Math.round(discountPercentage)));
+        
+        // Add end date if provided
+        if (data.end_date) {
+          form.append('end_date', data.end_date);
+        }
+      } else {
+        form.append('discounted_price', '');
+        form.append('discount_percentage', '0');
+        form.append('end_date', '');
+      }
+      form.append('category', data.category || 'tops');
+      // Append selected sizes (if any)
+      if (Array.isArray(sizesSelected) && sizesSelected.length > 0) {
+        sizesSelected.forEach(s => form.append('size', s));
+      }
       form.append('top_notes', data.top_notes || '');
       form.append('heart_notes', data.heart_notes || '');
       form.append('base_notes', data.base_notes || '');
       if (file) form.append('photo', file);
 
+      let apiResponse;
       if (editingId) {
         form.append('id', String(editingId));
-        console.debug('Submitting update product, auth token preview:', token ? `${String(token).slice(0,8)}...` : 'MISSING');
-        try {
-          const preview = {};
-          for (const [k, v] of form.entries()) {
-            preview[k] = v && v.name ? `[File: ${v.name}]` : v;
-          }
-          console.debug('FormData preview (update):', preview);
-        } catch (e) {
-          // ignore preview errors
+        // If there's a special offer price, use the special offers endpoint
+        if (data.discounted_price) {
+          apiResponse = await ApiClient.adminUpdateSpecialOffer(editingId, form, token);
+        } else {
+          apiResponse = await ApiClient.adminUpdatePerfume(form, token);
         }
-        await ApiClient.adminUpdatePerfume(form, token);
       } else {
-        console.debug('Submitting new product, auth token preview:', token ? `${String(token).slice(0,8)}...` : 'MISSING');
-        try {
-          const preview = {};
-          for (const [k, v] of form.entries()) {
-            preview[k] = v && v.name ? `[File: ${v.name}]` : v;
-          }
-          console.debug('FormData preview (create):', preview);
-        } catch (e) {
-          // ignore preview errors
+        // For new products with special offer price, use special offers endpoint
+        if (data.discounted_price) {
+          apiResponse = await ApiClient.adminAddSpecialOffer(form, token);
+          console.log('[AdminProducts] adminAddSpecialOffer response:', apiResponse);
+        } else {
+          apiResponse = await ApiClient.adminAddPerfume(form, token);
+          console.log('[AdminProducts] adminAddPerfume response:', apiResponse);
         }
-        await ApiClient.adminAddPerfume(form, token);
+      }
+      
+      // Try to extract product ID from the response to update temp keys
+      if (apiResponse && !editingId) {
+        const productId = apiResponse.id || apiResponse.perfume_id || (apiResponse.perfume && apiResponse.perfume.id);
+        if (productId && data.description) {
+          const updatedDescriptions = { ...productDescriptions };
+          // Find and update any temp keys for this product
+          Object.keys(updatedDescriptions).forEach(key => {
+            if (key.startsWith('temp_') && updatedDescriptions[key] === data.description) {
+              delete updatedDescriptions[key];
+            }
+          });
+          // Add with real ID
+          updatedDescriptions[productId] = data.description;
+          setProductDescriptions(updatedDescriptions);
+          try {
+            localStorage.setItem('productDescriptions', JSON.stringify(updatedDescriptions));
+            console.log('[AdminProducts] Updated temp key to real ID', productId, ':', data.description);
+          } catch (e) {
+            console.error('Error updating cache with real ID:', e);
+          }
+        }
       }
 
       // reload list
       const res = await ApiClient.adminGetPerfumes(token);
-      if (res && res.perfumes) setProducts(res.perfumes);
-
-      // Notify other tabs/clients that products have changed
-      try {
-        localStorage.setItem('products:updated', String(Date.now()));
-      } catch (e) {
-        // ignore storage errors
+      if (res && res.perfumes) {
+        setProducts(res.perfumes);
+        
+        // Final pass: map all product IDs to their descriptions
+        const finalDescriptions = { ...productDescriptions };
+        res.perfumes.forEach(p => {
+          // If we already have a description for this product, keep it
+          if (!finalDescriptions[p.id] && productDescriptions[p.id]) {
+            finalDescriptions[p.id] = productDescriptions[p.id];
+          }
+          // If backend returned description, use it
+          if (p.description && p.id) {
+            finalDescriptions[p.id] = p.description;
+          }
+        });
+        
+        setProductDescriptions(finalDescriptions);
+        try {
+          localStorage.setItem('productDescriptions', JSON.stringify(finalDescriptions));
+          console.log('[AdminProducts] Final descriptions cache:', finalDescriptions);
+        } catch (e) {
+          console.error('Error saving final descriptions:', e);
+        }
       }
-
-  reset({ title: "", price: "", image: "", description: "", quantity: 100, category: 'tops', top_notes: '', heart_notes: '', base_notes: '' });
+      
+      reset({ 
+        title: "", 
+        price: "", 
+        image: "", 
+        description: "", 
+        quantity: 100, 
+        category: 'tops', 
+        size: [],
+        top_notes: '', 
+        heart_notes: '', 
+        base_notes: '',
+        discounted_price: '',
+        end_date: ''
+      });
       setEditingId(null);
       setFile(null);
     } catch (err) {
-      // Better debug output: show status and server response body when available
-      try {
-        // Print detailed server response if available (stringify objects for readable output)
-        console.error('Error saving product', err, 'status:', err?.status, 'data:', err?.data && typeof err.data === 'object' ? JSON.stringify(err.data, null, 2) : err?.data);
-      } catch (logErr) {
-        console.error('Error saving product (failed to read error details)', err);
-      }
-
-      // Try to extract a server message if provided
-      const serverMessage = (err && err.data && (err.data.message || err.data.error || err.data)) || err.message;
-
-      // For debugging: if we have FormData, create a small dump to inspect what was sent
-      try {
-        if (typeof form !== 'undefined' && form instanceof FormData) {
-          const dump = {};
-          for (const pair of form.entries()) {
-            const [k, v] = pair;
-            dump[k] = v && v.name ? `[File: ${v.name}]` : v;
-          }
-          console.debug('FormData sent (preview):', dump);
-        }
-      } catch (fdErr) {
-        // ignore
-      }
-
-      alert(serverMessage || 'Failed to save product. See console for details.');
+      console.error('Error saving perfume', err);
+      alert(err.message || 'Failed to save perfume');
     }
   };
-
   const handleEdit = (product) => {
-    reset({ title: product.name || product.title, price: product.price, image: '', description: product.description });
+    console.debug('[AdminProducts:handleEdit] editing product id, incoming size:', product.id, product.size);
+    // Try to get description from backend or localStorage
+    const descriptionToUse = product.description || productDescriptions[product.id] || '';
+    reset({
+      title: product.name || product.title,
+      price: product.originalPrice || product.price,
+      discounted_price: product.discounted_price || (product.price !== product.originalPrice ? product.price : ''),
+      end_date: product.end_date ? new Date(product.end_date).toISOString().split('T')[0] : '',
+      image: '',
+      description: descriptionToUse,
+      quantity: product.quantity || 100,
+      category: product.category || 'tops',
+      size: Array.isArray(product.size) ? product.size : [],
+      top_notes: product.notes?.top?.join(',') || '',
+      heart_notes: product.notes?.heart?.join(',') || '',
+      base_notes: product.notes?.base?.join(',') || ''
+    });
+    // ensure the controlled value is set and the checkbox UI reflects backend values
+    try {
+      const val = Array.isArray(product.size) ? product.size : [];
+      setValue('size', val);
+      setSizesSelected(val);
+      console.debug('[AdminProducts:handleEdit] set sizes ->', val);
+    } catch (e) {
+      console.error('[AdminProducts:handleEdit] setValue/setSizesSelected error', e);
+    }
     setEditingId(product.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -165,18 +377,14 @@ export default function AdminProducts() {
       await ApiClient.adminDeletePerfume(id, token);
       const res = await ApiClient.adminGetPerfumes(token);
       if (res && res.perfumes) setProducts(res.perfumes);
-    if (editingId === id) {
-      reset({ title: "", price: "", image: "", description: "", quantity: 100, category: 'tops', top_notes: '', heart_notes: '', base_notes: '' });
-      setEditingId(null);
-    }
+      if (editingId === id) {
+        reset({ title: "", price: "", image: "", description: "", quantity: 100, category: 'tops', size: [], top_notes: '', heart_notes: '', base_notes: '' });
+        setEditingId(null);
+      }
     } catch (err) {
-  console.error('Error deleting product', err);
-  alert(err.message || 'Failed to delete product');
+      console.error('Error deleting perfume', err);
+      alert(err.message || 'Failed to delete perfume');
     }
-  };
-
-  const handleClearAll = () => {
-    // removed Clear All action per admin UI request
   };
 
   return (
@@ -195,7 +403,7 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Title</FormLabel>
                 <FormControl>
-                  <Input placeholder="Title" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" placeholder="Title" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -207,9 +415,9 @@ export default function AdminProducts() {
             name="price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Price</FormLabel>
+                <FormLabel>Regular Price</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="Price" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" type="number" placeholder="Regular Price" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -223,7 +431,7 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Quantity</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="Quantity" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" type="number" placeholder="Quantity" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -248,7 +456,45 @@ export default function AdminProducts() {
             )}
           />
 
-          {/* Size option removed as requested */}
+          <FormField
+            control={control}
+            name="size"
+            render={({ field }) => (
+              <FormItem>
+                <div className="text-sm font-medium">Size</div>
+                <FormControl>
+                  <div className="flex items-center gap-6">
+                    {[
+                      { label: 'XL', value: '150ml' },
+                      { label: 'L', value: '100ml' },
+                      { label: 'M', value: '50ml' },
+                    ].map((opt) => (
+                      <label key={opt.value} className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Array.isArray(sizesSelected) ? sizesSelected.includes(opt.value) : false}
+                          onChange={(e) => {
+                            const current = Array.isArray(sizesSelected) ? [...sizesSelected] : [];
+                            if (e.target.checked) {
+                              if (!current.includes(opt.value)) current.push(opt.value);
+                            } else {
+                              const idx = current.indexOf(opt.value);
+                              if (idx > -1) current.splice(idx, 1);
+                            }
+                            setSizesSelected(current);
+                            try { setValue('size', current); } catch (err) { console.error('[AdminProducts:checkbox] error', err); }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                        />
+                        <span className="text-sm">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={control}
@@ -257,14 +503,26 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Image URL (optional) or upload</FormLabel>
                 <FormControl>
-                  <Input placeholder="Image URL (optional)" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" placeholder="Image URL (optional)" {...field} />
                 </FormControl>
                 <div className="mt-2">
                   <input
+                    className="w-full"
                     type="file"
                     accept="image/*"
                     onChange={(e) => setFile(e.target.files && e.target.files[0])}
                   />
+                  {file && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: 'inline-block', border: '1px solid #e5e7eb', borderRadius: 8, padding: 8 }}>
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt="preview"
+                          style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6 }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <FormMessage />
               </FormItem>
@@ -278,7 +536,7 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl>
-                  <Textarea rows={3} placeholder="Description" {...field} />
+                  <Textarea className="w-full" rows={3} placeholder="Description" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -292,7 +550,7 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Top Notes</FormLabel>
                 <FormControl>
-                  <Input placeholder="Comma separated top notes" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" placeholder="Comma separated top notes" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -306,7 +564,7 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Heart Notes</FormLabel>
                 <FormControl>
-                  <Input placeholder="Comma separated heart notes" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" placeholder="Comma separated heart notes" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -320,7 +578,7 @@ export default function AdminProducts() {
               <FormItem>
                 <FormLabel>Base Notes</FormLabel>
                 <FormControl>
-                  <Input placeholder="Comma separated base notes" {...field} />
+                  <Input className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg" placeholder="Comma separated base notes" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -329,6 +587,16 @@ export default function AdminProducts() {
 
           <div style={{ display: "flex", gap: 8 }}>
             <Button type="submit">{editingId ? "Update Product" : "Create Product"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                reset({ title: "", price: "", image: "", description: "", quantity: 100, category: 'tops', size: [], top_notes: '', heart_notes: '', base_notes: '' });
+                setEditingId(null);
+              }}
+            >
+              Reset
+            </Button>
           </div>
         </form>
       </Form>
@@ -347,23 +615,58 @@ export default function AdminProducts() {
               alignItems: "center",
             }}
           >
-            <img
-              src={p.photo_url || p.image || "https://via.placeholder.com/80"}
-              alt={p.name || p.title}
-              style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6 }}
-            />
+            {
+              (() => {
+                const placeholder = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='80'%20height='80'%3E%3Crect%20width='100%25'%20height='100%25'%20fill='%23e5e7eb'/%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='middle'%20text-anchor='middle'%20fill='%239ca3af'%20font-family='Arial,%20sans-serif'%20font-size='12'%3ENo%20Image%3C/text%3E%3C/svg%3E";
+                
+                // Build image URL using the perfume ID and the /perfumes/photo/{id} endpoint
+                const photoUrl = `http://127.0.0.1:5000/perfumes/photo/${p.id}`;
+                
+                return (
+                  <img
+                    src={photoUrl}
+                    alt={p.name || p.title}
+                    title={photoUrl}
+                    onError={(e) => { if ((e.currentTarget.dataset.fallback ?? "") !== "1") { e.currentTarget.dataset.fallback = "1"; e.currentTarget.src = placeholder; } }}
+                    style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6 }}
+                  />
+                );
+              })()
+            }
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600 }}>{p.name || p.title}</div>
-              <div style={{ color: "#6b7280" }}>{p.description}</div>
-              <div style={{ marginTop: 6 }}>₹{Number(p.price || p.price === 0 ? p.price : 0).toFixed(2)}</div>
+              <div style={{ color: "#6b7280", marginTop: 4, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordWrap: 'break-word', minHeight: '2.5rem' }}>
+                {(() => {
+                  const desc = p.description || productDescriptions[p.id];
+                  if (import.meta.env.DEV) {
+                    console.log(`[AdminProducts Display] Product ${p.id} (${p.name}):`, {
+                      fromBackend: p.description,
+                      fromLocalStorage: productDescriptions[p.id],
+                      final: desc,
+                      allStoredDescriptions: productDescriptions
+                    });
+                  }
+                  return desc ? (
+                    <span>{desc}</span>
+                  ) : (
+                    <span style={{ fontStyle: 'italic', color: '#9ca3af' }}>No description available</span>
+                  );
+                })()}
+              </div>
+              <div style={{ marginTop: 6 }}>${Number(p.price || p.price === 0 ? p.price : 0).toFixed(2)}</div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: 'center' }}>
               <Button size="sm" variant="outline" onClick={() => handleEdit(p)}>
                 Edit
               </Button>
               <Button size="sm" variant="destructive" onClick={() => handleDelete(p.id)}>
                 Delete
               </Button>
+              {!p.is_best_seller && (
+                <Button size="sm" variant="default" onClick={() => handleAddToBestSeller(p)}>
+                  Add to Best Seller
+                </Button>
+              )}
             </div>
           </div>
         ))}
