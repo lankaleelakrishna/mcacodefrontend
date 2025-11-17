@@ -11,7 +11,7 @@ import AdminProtectedRoute from "@/components/AdminProtectedRoute";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
 import AdminProducts from "./pages/AdminProducts";
-import SalesAnalytics from "@/components/admin/SalesAnalytics";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import ManageSections from "@/components/admin/ManageSections";
 import AdminReviews from "@/components/admin/AdminReviews";
 import AdminOrders from "@/components/admin/AdminOrders";
@@ -25,6 +25,10 @@ import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 import LikedProducts from "./pages/LikedProducts";
 import ContactUs from "./pages/ContactUs";
+import AgePolicy from "./pages/AgePolicy";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import CookiePolicy from "./pages/CookiePolicy";
 import RecentOrders from "./pages/RecentOrders";
 
 const queryClient = new QueryClient();
@@ -65,16 +69,13 @@ const App = () => (
                   </RoleRedirect>
                 }
               />
-              <Route
-                path="/collections"
-                element={
-                  <RoleRedirect>
-                    <Products />
-                  </RoleRedirect>
-                }
-              />
+              <Route path="/collections" element={<ContactUs />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<ContactUs />} />
+              <Route path="/ages" element={<AgePolicy />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/cookies" element={<CookiePolicy />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/checkout" element={
                 <ProtectedRoute>
@@ -100,7 +101,7 @@ const App = () => (
               } />
               <Route path="/admin/analytics" element={
                 <AdminProtectedRoute>
-                  <SalesAnalytics />
+                  <AdminAnalytics />
                 </AdminProtectedRoute>
               } />
               <Route path="/admin/sections" element={

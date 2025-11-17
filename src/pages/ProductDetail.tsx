@@ -122,7 +122,10 @@ export default function ProductDetail() {
               heart: perfume.heart_notes ? perfume.heart_notes.split(",") : [],
               base: perfume.base_notes ? perfume.base_notes.split(",") : [],
             },
-            sizes: perfume.size ? [perfume.size] : ["50ml"],
+            // Prefer backend-provided `sizes` (normalized on server). Fall back to parsing `size` string.
+            sizes: Array.isArray(perfume.sizes)
+              ? perfume.sizes
+              : (perfume.size ? String(perfume.size).split(',').map((s: string) => s.trim()).filter(Boolean) : ['One Size']),
             isBestSeller: perfume.is_best_seller ?? false,
             isNew: perfume.is_new ?? false,
             isSale: perfume.is_sale ?? false,
@@ -378,15 +381,17 @@ export default function ProductDetail() {
 
             {/* Size Selection */}
             <div className="space-y-3">
-              <h3 className="font-semibold">Select Size</h3>
-              <div className="flex gap-3">
+              <h3 className="font-semibold text-lg">Select Size</h3>
+              <div className="flex gap-3 flex-wrap">
                 {product.sizes.map((size) => (
                   <Button
                     key={size}
                     variant={selectedSize === size ? "default" : "outline"}
                     onClick={() => setSelectedSize(size)}
                     className={
-                      selectedSize === size ? "gradient-primary" : ""
+                      selectedSize === size 
+                        ? "gradient-primary text-white font-semibold px-6 py-2 rounded-lg" 
+                        : "border-2 hover:border-primary px-6 py-2 rounded-lg"
                     }
                   >
                     {size}
@@ -413,18 +418,35 @@ export default function ProductDetail() {
             {(() => {
               const orig = (product as any).originalPrice ?? null;
               const price = Number(product.price ?? 0);
+              const quantity = product.quantity || 0;
               if (orig && Number(orig) > price) {
                 const saved = Number(orig) - price;
                 const pct = Math.round((saved / Number(orig)) * 100);
                 return (
-                  <div>
+                  <div className="space-y-2">
                     <p className="text-sm text-success font-medium">You save ₹{saved.toFixed(2)} ({pct}% off)</p>
-                    <p className="text-sm text-muted-foreground">{product.inStock ? "✓ In Stock" : "Out of Stock"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {product.inStock ? "✓ In Stock" : "Out of Stock"}
+                    </p>
+                    {product.inStock && (
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-foreground">{quantity}</span> units available
+                      </p>
+                    )}
                   </div>
                 );
               }
               return (
-                <p className="text-sm text-muted-foreground">{product.inStock ? "✓ In Stock" : "Out of Stock"}</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {product.inStock ? "✓ In Stock" : "Out of Stock"}
+                  </p>
+                  {product.inStock && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">{quantity}</span> units available
+                    </p>
+                  )}
+                </div>
               );
             })()}
           </div>

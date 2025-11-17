@@ -89,8 +89,8 @@ const Navbar = () => {
             <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors">
               Products
             </Link>
-            <Link to="/collections" className="text-sm font-medium hover:text-primary transition-colors">
-              Collections
+            <Link to="/contact" className="text-sm font-medium hover:text-primary transition-colors">
+              Contact
             </Link>
             <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors">
               About
@@ -233,10 +233,10 @@ const Navbar = () => {
                     Products
                   </Link>
                   <Link
-                    to="/collections"
+                    to="/contact"
                     className="text-sm font-medium hover:text-primary transition-colors"
                   >
-                    Collections
+                    Contact
                   </Link>
                   <Link
                     to="/about"

@@ -1,132 +1,158 @@
 import React, { useEffect, useState } from 'react';
+import AdminNavigation from '@/components/admin/AdminNavigation';
+import Navbar from '@/components/Navbar';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { format } from 'date-fns';
 
-const STATUS_OPTIONS = ['pending', 'processing', 'shipped', 'completed', 'cancelled', 'refunded'];
-
-const AdminOrders: React.FC = () => {
+const AdminOrders = () => {
   const { token } = useAuth();
-  const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updating, setUpdating] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<any | undefined>(undefined);
+  const { toast } = useToast();
 
-  const fetchOrders = async () => {
+  const formatDate = (d?: Date) => (d ? format(d, 'yyyy-MM-dd') : undefined);
+
+  const loadOrders = async () => {
+    if (!token) return;
     setLoading(true);
-    setError(null);
     try {
-      const res = await ApiClient.adminListOrders(undefined, token ?? undefined);
-      // backend shape may vary; try common keys
-  const list = res?.orders || res?.data || res?.results || res;
-  setOrders(Array.isArray(list) ? list : []);
+      const start = dateRange?.from ? formatDate(dateRange.from) : undefined;
+      const end = dateRange?.to ? formatDate(dateRange.to) : undefined;
+      const res = await ApiClient.adminGetAllOrders(page, limit, statusFilter, start, end, token);
+      // Expecting { orders: [...], meta: { page, limit, total, pages } }
+      setOrders(res.orders || res.data || []);
+      if (res.meta) {
+        setTotalPages(res.meta.pages || 1);
+      }
     } catch (err: any) {
-      setError(err?.message || 'Failed to load orders');
+      console.error('Failed to load admin orders', err);
+      toast({ title: 'Error', description: 'Failed to load orders', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadOrders();
+  }, [token, page, statusFilter, dateRange]);
 
-  // details view removed — status changes call the admin route directly
-
-  // helpers to be resilient against different backend field names
-  const getCustomer = (o: any) => {
-    if (!o) return '—';
-    const candidate = o.customer_name || o.user_name || o.name || o.full_name || o.email || o.billing_name || o.customer || (o.user && (o.user.name || o.user.email));
-    if (candidate) return candidate;
-    // try composing from first/last
-    const first = o.first_name || o.billing_first_name || o.customer_first_name || '';
-    const last = o.last_name || o.billing_last_name || o.customer_last_name || '';
-    const combined = `${first} ${last}`.trim();
-    return combined || '—';
-  };
-
-  const getTotal = (o: any) => {
-    if (!o) return '—';
-    return o.total ?? o.amount ?? o.grand_total ?? o.total_amount ?? o.order_total ?? '—';
-  };
-
-  const changeStatus = async (orderId: number | string, status: string) => {
-    if (!confirm(`Change order ${orderId} status to "${status}"?`)) return;
-    setUpdating((s) => ({ ...s, [orderId]: true }));
-    try {
-      await ApiClient.adminUpdateOrderStatus(orderId, status, token ?? undefined);
-      setOrders((prev) => prev.map((o) => (String(o.id) === String(orderId) ? { ...o, status } : o)));
-    } catch (err: any) {
-      alert(err?.message || 'Failed to update order status');
-    } finally {
-      setUpdating((s) => ({ ...s, [orderId]: false }));
-    }
-  };
+  const prev = () => setPage(p => Math.max(1, p - 1));
+  const next = () => setPage(p => Math.min(totalPages || 1, p + 1));
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <Button variant="default" size="sm" className="bg-primary text-white" onClick={() => navigate(-1)}>Back</Button>
-        <h2 className="text-2xl font-semibold">Orders</h2>
-        <div />
-      </div>
+      <Navbar />
+      <div className="container mx-auto p-8">
+        <AdminNavigation />
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">All Orders</h1>
+          <div className="text-sm text-muted-foreground">Showing page {page}</div>
+        </div>
 
-      {loading && <div>Loading orders…</div>}
-      {error && <div className="text-red-600">{error}</div>}
+        <div className="mb-6 bg-background border rounded p-4 flex flex-col md:flex-row md:items-center md:gap-4">
+          <div className="flex items-center gap-3 mb-3 md:mb-0">
+            <label className="text-sm font-medium mr-2">Status</label>
+            <select
+              className="h-10 rounded-md border px-3"
+              value={statusFilter ?? ''}
+              onChange={(e) => { setStatusFilter(e.target.value || undefined); setPage(1); }}
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
 
-      {!loading && !error && (
-        <div className="space-y-4">
-          {orders.length === 0 && <div>No orders found.</div>}
+          <div className="flex items-center gap-3 mb-3 md:mb-0">
+            <label className="text-sm font-medium mr-2">Date Range</label>
+            <DatePickerWithRange date={dateRange} onDateChange={(d) => { setDateRange(d); setPage(1); }} />
+          </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border">
-              <thead>
-                <tr className="text-left">
-                  <th className="px-3 py-2 border">ID</th>
-                  <th className="px-3 py-2 border">Customer</th>
-                  <th className="px-3 py-2 border">Total</th>
-                  <th className="px-3 py-2 border">Status</th>
-                  <th className="px-3 py-2 border">Created</th>
-                  <th className="px-3 py-2 border">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((o: any) => (
-                  <React.Fragment key={o.id}>
-                    <tr>
-                      <td className="px-3 py-2 border">{o.id}</td>
-                      <td className="px-3 py-2 border">{getCustomer(o)}</td>
-                      <td className="px-3 py-2 border">₹{getTotal(o)}</td>
-                      <td className="px-3 py-2 border">{o.status || '—'}</td>
-                      <td className="px-3 py-2 border">{o.created_at ? new Date(o.created_at).toLocaleString() : '—'}</td>
-                      <td className="px-3 py-2 border">
-                        <div className="flex items-center gap-2">
-                          {/* View button removed per request; details available via backend */}
-                          <select
-                            value={o.status || ''}
-                            onChange={(e) => changeStatus(o.id, e.target.value)}
-                            className="border rounded px-2 py-1 text-sm"
-                            disabled={!!updating[o.id]}
-                          >
-                            <option value="">— change status —</option>
-                            {STATUS_OPTIONS.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                    </tr>
-                    {/* details row removed */}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+          <div className="ml-auto flex gap-2">
+            <Button
+              type="button"
+              onClick={() => { setPage(1); loadOrders(); }}
+            >Apply</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { setStatusFilter(undefined); setDateRange(undefined); setPage(1); }}
+            >Clear</Button>
           </div>
         </div>
-      )}
+
+        {loading && <div>Loading...</div>}
+
+        {orders.length === 0 && !loading && (
+          <div className="text-muted-foreground">No orders found.</div>
+        )}
+
+        {orders.map((o: any) => (
+          <section key={o.id} className="mb-8 border rounded p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-lg font-semibold">Order #{o.id}</div>
+                <div className="text-sm text-muted-foreground">By {o.username || o.user_name || `User ${o.user_id}`}</div>
+                <div className="text-sm">Status: {o.status}</div>
+                <div className="text-sm">Total: {o.total_amount} | Shipping: {o.shipping_cost} | Tax: {o.tax_amount}</div>
+                <div className="text-sm">Placed: {o.created_at}</div>
+              </div>
+              <div className="text-right">
+                <div>{o.shipping_first_name} {o.shipping_last_name}</div>
+                <div className="text-sm">{o.shipping_address}, {o.shipping_city} {o.shipping_state} {o.shipping_zip}</div>
+                <div className="text-sm">{o.shipping_phone} • {o.shipping_email}</div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-medium mb-2">Items</h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item ID</TableHead>
+                    <TableHead>Perfume</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Price</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(o.items || []).map((it: any) => (
+                    <TableRow key={it.id || `${o.id}-${it.perfume_id}-${it.size}` }>
+                      <TableCell>{it.id || ''}</TableCell>
+                      <TableCell>{it.perfume_name || it.name || it.perfume_id}</TableCell>
+                      <TableCell>{it.size}</TableCell>
+                      <TableCell>{it.quantity || it.qty || it.q || 1}</TableCell>
+                      <TableCell>{it.price || it.unit_price || it.total_price}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+        ))}
+
+        <div className="flex items-center justify-between mt-6">
+          <div>Page {page} of {totalPages || 1}</div>
+          <div className="flex gap-2">
+            <Button type="button" onClick={prev} disabled={page <= 1}>Previous</Button>
+            <Button type="button" onClick={next} disabled={page >= (totalPages || 1)}>Next</Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

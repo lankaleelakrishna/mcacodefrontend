@@ -193,22 +193,8 @@ export default function Checkout() {
   console.debug('Checkout payload', orderData);
 
   // Send the order payload to the backend directly (include raw token)
-  const res = await fetch(`${API_BASE}/orders`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': token as string
-    },
-    body: JSON.stringify(orderData)
-  });
-
-  if (!res.ok) {
-    // Try to surface error from server if available
-    const errText = await res.text().catch(() => null);
-    throw new Error(errText || `Failed to place order (status ${res.status})`);
-  }
-
-  const data = await res.json();
+  // Use ApiClient.checkout which posts to `/checkout` and centralizes headers/response handling
+  const data = await ApiClient.checkout(orderData, token as string);
 
       // Show success message based on payment method and status
       if (data.status === 'paid') {

@@ -240,9 +240,10 @@ export default function AdminProducts() {
         form.append('end_date', '');
       }
       form.append('category', data.category || 'tops');
-      // Append selected sizes (if any)
+      // Append selected sizes (if any) as a comma-separated string (backend expects a single size field)
       if (Array.isArray(sizesSelected) && sizesSelected.length > 0) {
-        sizesSelected.forEach(s => form.append('size', s));
+        // join with commas so backend normalize_size_for_storage can parse
+        form.append('size', sizesSelected.join(','));
       }
       form.append('top_notes', data.top_notes || '');
       form.append('heart_notes', data.heart_notes || '');
@@ -344,6 +345,11 @@ export default function AdminProducts() {
     console.debug('[AdminProducts:handleEdit] editing product id, incoming size:', product.id, product.size);
     // Try to get description from backend or localStorage
     const descriptionToUse = product.description || productDescriptions[product.id] || '';
+    // prefer backend-provided `sizes` array, fall back to comma-separated `size` string
+    const sizesForForm = Array.isArray(product.sizes)
+      ? product.sizes
+      : (product.size ? String(product.size).split(',').map(s => s.trim()).filter(Boolean) : []);
+
     reset({
       title: product.name || product.title,
       price: product.originalPrice || product.price,
@@ -353,17 +359,16 @@ export default function AdminProducts() {
       description: descriptionToUse,
       quantity: product.quantity || 100,
       category: product.category || 'tops',
-      size: Array.isArray(product.size) ? product.size : [],
+      size: sizesForForm,
       top_notes: product.notes?.top?.join(',') || '',
       heart_notes: product.notes?.heart?.join(',') || '',
       base_notes: product.notes?.base?.join(',') || ''
     });
     // ensure the controlled value is set and the checkbox UI reflects backend values
     try {
-      const val = Array.isArray(product.size) ? product.size : [];
-      setValue('size', val);
-      setSizesSelected(val);
-      console.debug('[AdminProducts:handleEdit] set sizes ->', val);
+      setValue('size', sizesForForm);
+      setSizesSelected(sizesForForm);
+      console.debug('[AdminProducts:handleEdit] set sizes ->', sizesForForm);
     } catch (e) {
       console.error('[AdminProducts:handleEdit] setValue/setSizesSelected error', e);
     }
@@ -464,11 +469,17 @@ export default function AdminProducts() {
                 <div className="text-sm font-medium">Size</div>
                 <FormControl>
                   <div className="flex items-center gap-6">
-                    {[
-                      { label: 'XL', value: '150ml' },
-                      { label: 'L', value: '100ml' },
-                      { label: 'M', value: '50ml' },
-                    ].map((opt) => (
+                    {
+                      // Use standard clothing sizes for admin dashboard
+                      [
+                        { label: 'XS', value: 'XS' },
+                        { label: 'S', value: 'S' },
+                        { label: 'M', value: 'M' },
+                        { label: 'L', value: 'L' },
+                        { label: 'XL', value: 'XL' },
+                        { label: 'XXL', value: 'XXL' },
+                        { label: 'XXXL', value: 'XXXL' },
+                      ].map((opt) => (
                       <label key={opt.value} className="inline-flex items-center gap-2">
                         <input
                           type="checkbox"

@@ -30,7 +30,6 @@ const Products = () => {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [fragranceFilter, setFragranceFilter] = useState("all");
   const [sortBy, setSortBy] = useState(section === "new-arrivals" ? "newest" : "popular");
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +111,6 @@ const Products = () => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = categoryFilter === "all" || product.category.toLowerCase() === categoryFilter.toLowerCase();
-      const matchesFragrance = fragranceFilter === "all" || product.fragranceType === fragranceFilter;
       
       // Section filtering
       const matchesSection = !section || (
@@ -121,7 +119,7 @@ const Products = () => {
         (section === "special-offers" && product.isSale)
       );
 
-      return matchesSearch && matchesCategory && matchesFragrance && matchesSection;
+      return matchesSearch && matchesCategory && matchesSection;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -146,31 +144,31 @@ const Products = () => {
       
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+        <div className="mb-6">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">
             {section === "best-sellers" ? "Best Sellers" :
              section === "new-arrivals" ? "New Arrivals" :
              section === "special-offers" ? "Special Offers" :
-             "All Perfumes"}
+             "All Products"}
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base md:text-lg text-muted-foreground">
             {section === "best-sellers" ? "Our most popular fragrances loved by customers" :
              section === "new-arrivals" ? "The latest additions to our luxury collection" :
              section === "special-offers" ? "Exclusive deals on premium fragrances" :
-             "Discover our complete collection of luxury fragrances"}
+             "Discover our complete collection of products"}
           </p>
         </div>
 
         {/* Filters */}
         <div className="bg-card rounded-lg p-6 mb-8 shadow-elegant">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search perfumes..."
+                  placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -191,19 +189,7 @@ const Products = () => {
               </SelectContent>
             </Select>
 
-            {/* Fragrance Type Filter */}
-            <Select value={fragranceFilter} onValueChange={setFragranceFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Fragrance Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="Floral">Floral</SelectItem>
-                <SelectItem value="Woody">Woody</SelectItem>
-                <SelectItem value="Fresh">Fresh</SelectItem>
-                <SelectItem value="Oriental">Oriental</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* NOTE: Fragrance Type filter removed per request */}
 
             {/* Sort By */}
             <Select value={sortBy} onValueChange={setSortBy}>
@@ -223,8 +209,8 @@ const Products = () => {
 
         {/* Results Count */}
         <div className="mb-6">
-          <p className="text-muted-foreground">
-            Showing {filteredProducts.length} of {allProducts.length} perfumes
+            <p className="text-muted-foreground">
+            Showing {filteredProducts.length} of {allProducts.length} products
           </p>
         </div>
 
@@ -238,11 +224,10 @@ const Products = () => {
         {/* No Results */}
         {filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-xl text-muted-foreground mb-4">No perfumes found matching your criteria</p>
+            <p className="text-xl text-muted-foreground mb-4">No products found matching your criteria</p>
             <Button onClick={() => {
               setSearchQuery("");
               setCategoryFilter("all");
-              setFragranceFilter("all");
             }}>
               Clear Filters
             </Button>

@@ -109,6 +109,7 @@ const Footer = () => {
             <button onClick={() => handleNavigation('/privacy')} className="hover:text-primary transition-colors text-left">Privacy Policy</button>
             <button onClick={() => handleNavigation('/terms')} className="hover:text-primary transition-colors text-left">Terms of Service</button>
             <button onClick={() => handleNavigation('/cookies')} className="hover:text-primary transition-colors text-left">Cookie Policy</button>
+            <button onClick={() => handleNavigation('/ages')} className="hover:text-primary transition-colors text-left">Age Policy</button>
           </div>
         </div>
       </div>

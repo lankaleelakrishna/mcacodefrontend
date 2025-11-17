@@ -15,6 +15,7 @@ import ManageSections from "./pages/admin/ManageSections";
 import PrivacyPolicy from "./pages/PrivacyPolicy.jsx";
 import TermsOfService from "./pages/TermsOfService.jsx";
 import CookiePolicy from "./pages/CookiePolicy.jsx";
+import AdminOrders from "./pages/admin/AdminOrders";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
               {/* Admin Routes */}
               <Route element={<AdminProtectedRoute />}>
                 <Route path="/admin/sections" element={<ManageSections />} />
+                <Route path="/admin/orders" element={<AdminOrders />} />
               </Route>
 
               {/* Catch-all Route */}

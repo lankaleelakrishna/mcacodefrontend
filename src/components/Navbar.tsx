@@ -72,8 +72,8 @@ const Navbar = () => {
             <Link to="/products" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               Products
             </Link>
-            <Link to="/collections" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
-              Collections
+            <Link to="/contact" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
+              Contact
             </Link>
             <Link to="/about" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
               About
@@ -233,11 +233,11 @@ const Navbar = () => {
                     Products
                   </Link>
                   <Link
-                    to="/collections"
+                    to="/contact"
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="text-lg font-medium hover:text-primary transition-colors"
                   >
-                    Collections
+                    Contact
                   </Link>
                   <Link
                     to="/about"

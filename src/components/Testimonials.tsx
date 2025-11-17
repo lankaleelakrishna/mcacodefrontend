@@ -72,13 +72,7 @@ const Testimonials = ({ reviews }: { reviews?: any[] }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If parent provided reviews, use them and skip fetching.
-    if (reviews && reviews.length > 0) {
-      setRecentReviews(reviews);
-      setLoadingReviews(false);
-      return;
-    }
-
+    // Always try to fetch recent reviews from backend so we don't show static data.
     setLoadingReviews(true);
     const load = async () => {
       try {
