@@ -23,26 +23,30 @@ const ContactUs = () => {
     setIsSubmitting(true);
 
     try {
-      // Here you would typically make an API call to send the message
-      // For now, we'll just show a success message
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      toast({
-        title: "Message Sent",
-        description: "Thank you for contacting us. We'll get back to you soon!",
+      const response = await fetch('/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
-
-      setFormData({
-        name: "",
-        email: "",
-        subject: "",
-        message: "",
-      });
+      const result = await response.json();
+      if (result.success) {
+        toast({
+          title: 'Message Sent',
+          description: "Thank you for contacting us. We'll get back to you soon!",
+        });
+        setFormData({ name: '', email: '', subject: '', message: '' });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to send message: ' + (result.error || 'Unknown error'),
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);

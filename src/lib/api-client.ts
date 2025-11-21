@@ -20,6 +20,19 @@ interface ApiError extends Error {
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
 
 export class ApiClient {
+  // Get recent orders for the authenticated user. Backend endpoint used by pages is `/recent-orders`.
+  static async getRecentOrders(token?: string, limit?: number) {
+    const q = limit ? `?limit=${encodeURIComponent(String(limit))}` : '';
+    return this.request(`/recent-orders${q}`, {
+      method: 'GET',
+      headers: token ? { Authorization: token } : {},
+    });
+  }
+
+  // Backwards-compatible wrapper used by some components (e.g. Navbar)
+  static async getUserOrders(token?: string, opts?: { limit?: number }) {
+    return this.getRecentOrders(token, opts?.limit);
+  }
   // Cart endpoints
   static async addToCart(items: { perfume_id: number; quantity: number; size?: string }[], token?: string) {
     if (!token) throw new Error('Authentication required');
@@ -194,6 +207,24 @@ export class ApiClient {
     }
 
     try {
+      // Prevent customer-only endpoints from being called when viewing admin pages.
+      // This avoids 403 (Access denied — Customer only) noise in admin UI.
+      try {
+        if (typeof window !== 'undefined' && window.location && String(window.location.pathname).startsWith('/admin')) {
+          // If client code attempts to call cart/favorites while on admin routes, return a safe stub.
+          if (endpoint.startsWith('/cart')) {
+            if ((options.method || 'GET').toUpperCase() === 'GET') return { cart_items: [] } as any;
+            // For POST/DELETE to /cart, return a simple success response to satisfy callers
+            return { ok: true } as any;
+          }
+          if (endpoint.startsWith('/favorites') || endpoint.includes('/favorites')) {
+            if ((options.method || 'GET').toUpperCase() === 'GET') return { favorites: [] } as any;
+            return { ok: true } as any;
+          }
+        }
+      } catch (e) {
+        // ignore errors from admin-route guard
+      }
       console.log(`[API] ${options.method || 'GET'} ${url}`, headers); // Debug log with headers
       const response = await fetch(url, {
         ...options,
@@ -638,12 +669,57 @@ export class ApiClient {
     });
   }
 
+  static async adminGetBestSellers(token?: string) {
+    console.log('[ApiClient] adminGetBestSellers called');
+    try {
+      const response = await this.request('/admin/perfumes/best-sellers', {
+        method: 'GET',
+        headers: token ? { Authorization: token } : {},
+      });
+      console.log('[ApiClient] adminGetBestSellers response:', response);
+      return {
+        perfumes: response?.perfumes || response?.products || (Array.isArray(response) ? response : [])
+      };
+    } catch (e) {
+      console.warn('[ApiClient] adminGetBestSellers endpoint not found (404), using fallback: loading all perfumes and filtering locally', e);
+      try {
+        // Fallback: get all perfumes and filter locally
+        const allResponse = await this.adminGetPerfumes(token);
+        console.log('[ApiClient] adminGetBestSellers fallback - all perfumes:', allResponse?.perfumes?.length);
+        
+        const filtered = (allResponse?.perfumes || []).filter((p: any) => {
+          const isBestSeller = p.is_best_seller || p.isBestSeller;
+          console.log(`[ApiClient] Product ${p.id} (${p.name}): is_best_seller=${isBestSeller}`);
+          return isBestSeller;
+        });
+        
+        console.log('[ApiClient] adminGetBestSellers fallback - filtered:', filtered.length);
+        return {
+          perfumes: filtered
+        };
+      } catch (fallbackErr) {
+        console.error('[ApiClient] adminGetBestSellers fallback also failed:', fallbackErr);
+        // Return empty if both fail
+        return { perfumes: [] };
+      }
+    }
+  }
+
   static async adminUpdatePerfumeBestSeller(formData: FormData, token?: string) {
-    return this.request('/admin/perfumes/best-seller', {
+    console.log('[ApiClient] adminUpdatePerfumeBestSeller called with:', {
+      id: formData.get('id'),
+      is_best_seller: formData.get('is_best_seller'),
+      hasToken: !!token
+    });
+    
+    const response = await this.request('/admin/perfumes/best-seller', {
       method: 'PUT',
       body: formData,
       headers: token ? { Authorization: token } : {},
     });
+    
+    console.log('[ApiClient] adminUpdatePerfumeBestSeller response:', response);
+    return response;
   }
 
   static async adminGetSalesReport(days?: number, token?: string) {

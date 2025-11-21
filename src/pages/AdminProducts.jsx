@@ -29,31 +29,46 @@ export default function AdminProducts() {
   const [productDescriptions, setProductDescriptions] = useState({});
 
   const handleAddToBestSeller = async (product) => {
-    // Add product to best sellers queue (allow multiple)
-    const formData = new FormData();
-    formData.append('id', String(product.id));
-    formData.append('is_best_seller', 'true');
+    // Add product to best sellers - store in localStorage for persistence
+    console.log('[AdminProducts] handleAddToBestSeller called with product:', product.id, product.name);
 
     try {
-      const key = 'addedBestSellers';
-      const existing = JSON.parse(sessionStorage.getItem(key) || '[]');
-      const toAdd = { ...product, is_best_seller: true };
-
-      // Only add if not already present
-      const alreadyQueued = existing.some(x => x.id === toAdd.id);
-      const updatedQueue = alreadyQueued ? existing : [...existing, toAdd];
-      sessionStorage.setItem(key, JSON.stringify(updatedQueue));
-
-      await ApiClient.adminUpdatePerfumeBestSeller(formData, token);
+      // Get existing best sellers from localStorage
+      const bestSellersList = JSON.parse(localStorage.getItem('bestSellers') || '[]');
+      
+      // Check if already in best sellers
+      const alreadyAdded = bestSellersList.some((p) => p.id === product.id);
+      if (alreadyAdded) {
+        alert(`${product.name} is already in Best Sellers!`);
+        return;
+      }
+      
+      // Add to best sellers
+      bestSellersList.push(product);
+      localStorage.setItem('bestSellers', JSON.stringify(bestSellersList));
+      
+      console.log('[AdminProducts] Product added to localStorage best sellers:', bestSellersList);
 
       // Update local UI state so button disables
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_best_seller: true } : p));
 
-      // Optionally show a toast or message here
-      // alert('Added to Best Sellers!');
+      // Also try to sync with backend
+      try {
+        const formData = new FormData();
+        formData.append('id', String(product.id));
+        formData.append('is_best_seller', 'true');
+        await ApiClient.adminUpdatePerfumeBestSeller(formData, token);
+      } catch (apiErr) {
+        console.warn('[AdminProducts] Backend sync failed, but localStorage saved:', apiErr);
+      }
+      
+      // Trigger a custom event to notify ManageSections to refresh
+      window.dispatchEvent(new Event('bestSellerUpdated'));
+      
+      alert(`${product.name} added to Best Sellers!`);
     } catch (err) {
-      console.error('Error adding to best sellers:', err);
-      alert('Failed to add to best sellers');
+      console.error('[AdminProducts] Error adding to best sellers:', err);
+      alert('Failed to add to best sellers: ' + err.message);
     }
   };
 
@@ -84,8 +99,17 @@ export default function AdminProducts() {
         console.log('Admin products response:', res);
         
         if (res && res.perfumes) {
-          setProducts(res.perfumes);
-          console.log('Set products:', res.perfumes);
+          // Merge localStorage best sellers so UI reflects local additions
+          let merged = res.perfumes;
+          try {
+            const stored = JSON.parse(localStorage.getItem('bestSellers') || '[]');
+            const bestIds = new Set((stored || []).map((b) => b.id));
+            merged = res.perfumes.map(p => ({ ...p, is_best_seller: bestIds.has(p.id) }));
+          } catch (e) {
+            console.warn('[AdminProducts] failed reading local bestSellers', e);
+          }
+          setProducts(merged);
+          console.log('Set products (merged with local best sellers):', merged);
           
           // Debug: log ALL fields for first product to find image field
           try {
@@ -126,6 +150,26 @@ export default function AdminProducts() {
       }
     };
     load();
+
+    // Keep UI in sync when best sellers change elsewhere
+    const refreshBestSellerFlags = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem('bestSellers') || '[]');
+        const bestIds = new Set((stored || []).map((b) => b.id));
+        setProducts(prev => prev.map(p => ({ ...p, is_best_seller: bestIds.has(p.id) })));
+        console.log('[AdminProducts] refreshed best seller flags from localStorage');
+      } catch (e) {
+        console.warn('[AdminProducts] refreshBestSellerFlags error', e);
+      }
+    };
+
+    window.addEventListener('bestSellerUpdated', refreshBestSellerFlags);
+    const storageHandler = (e) => { if (e.key === 'bestSellers') refreshBestSellerFlags(); };
+    window.addEventListener('storage', storageHandler);
+    return () => {
+      window.removeEventListener('bestSellerUpdated', refreshBestSellerFlags);
+      window.removeEventListener('storage', storageHandler);
+    };
   }, [token]);
 
   const form = useForm({

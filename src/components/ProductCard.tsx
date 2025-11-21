@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/data/products";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +20,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const { addToLiked, removeFromLiked, isLiked } = useLiked();
+  const location = useLocation();
+  const { user } = useAuth();
+  const isAdminRoute = user?.isAdmin || location.pathname.startsWith('/admin');
   const [localRating, setLocalRating] = React.useState<number>(product.rating ?? 0);
   const [localReviewsCount, setLocalReviewsCount] = React.useState<number>(product.reviews ?? 0);
 
@@ -90,35 +93,37 @@ const ProductCard = ({ product }: ProductCardProps) => {
           alt={product.name}
           className="w-full h-full object-cover transition-smooth"
         />
-        <Button
-          size="icon"
-          variant="secondary"
-          className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-smooth"
-          onClick={(e) => {
-            e.stopPropagation();
-            console.debug('[ProductCard] like clicked', { productId: product.id, isAuthenticated });
-            if (!isAuthenticated) {
-              toast({ title: "Please login", description: "You must be logged in to like products." });
-              navigate('/login');
-              return;
-            }
-            try {
-              const idStr = String(product.id);
-              if (isLiked(idStr)) {
-                removeFromLiked(idStr);
-                toast({ title: "Removed from liked", description: `${product.name} has been removed from your liked products.` });
-              } else {
-                addToLiked(idStr);
-                toast({ title: "Added to liked", description: `${product.name} has been added to your liked products.` });
+        {!isAdminRoute && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-smooth"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.debug('[ProductCard] like clicked', { productId: product.id, isAuthenticated });
+              if (!isAuthenticated) {
+                toast({ title: "Please login", description: "You must be logged in to like products." });
+                navigate('/login');
+                return;
               }
-            } catch (err) {
-              console.error('[ProductCard] like handler error', err);
-              toast({ title: 'Error', description: 'Could not update liked products.' });
-            }
-          }}
-        >
-          <Heart className={`h-4 w-4 ${isLiked(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
-        </Button>
+              try {
+                const idStr = String(product.id);
+                if (isLiked(idStr)) {
+                  removeFromLiked(idStr);
+                  toast({ title: "Removed from liked", description: `${product.name} has been removed from your liked products.` });
+                } else {
+                  addToLiked(idStr);
+                  toast({ title: "Added to liked", description: `${product.name} has been added to your liked products.` });
+                }
+              } catch (err) {
+                console.error('[ProductCard] like handler error', err);
+                toast({ title: 'Error', description: 'Could not update liked products.' });
+              }
+            }}
+          >
+            <Heart className={`h-4 w-4 ${isLiked(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
+          </Button>
+        )}
         
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           {product.isBestSeller && (
@@ -204,14 +209,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
               );
             })()}
           </div>
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={handleAddToCart}
-            className="h-8 w-8"
-          >
-            <ShoppingCart className="h-4 w-4" />
-          </Button>
+          {!isAdminRoute && (
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={handleAddToCart}
+              className="h-8 w-8"
+            >
+              <ShoppingCart className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <Button 

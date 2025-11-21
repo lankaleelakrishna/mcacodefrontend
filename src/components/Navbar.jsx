@@ -101,57 +101,33 @@ const Navbar = () => {
           <div className="flex items-center space-x-2 md:space-x-4">
             {/* Recent Orders (removed from desktop navbar - available in profile dropdown and mobile menu) */}
 
-            {/* Liked Products & Cart - show but disable actions on admin pages/users */}
-              {
-                (() => {
-                  const isAdminRoute = user?.isAdmin || location.pathname.startsWith('/admin');
-                  const { toast } = useToast();
-                  return (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (!isAuthenticated) {
-                            navigate('/login');
-                            return;
-                          }
-                          if (isAdminRoute) {
-                            toast({ title: 'Not available', description: 'Favorites are a customer feature', variant: 'default' });
-                            return;
-                          }
-                          navigate('/liked');
-                        }}
-                        className="relative"
-                      >
-                        <Heart className="h-5 w-5" />
-                        {likedProducts.length > 0 && (
-                          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-medium text-primary-foreground flex items-center justify-center">
-                            {likedProducts.length}
-                          </span>
-                        )}
-                      </Button>
+            {/* Liked Products & Cart - hide entirely on admin pages/users */}
+            {!(user?.isAdmin || location.pathname.startsWith('/admin')) && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate('/login');
+                      return;
+                    }
+                    navigate('/liked');
+                  }}
+                  className="relative"
+                >
+                  <Heart className="h-5 w-5" />
+                  {likedProducts.length > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-medium text-primary-foreground flex items-center justify-center">
+                      {likedProducts.length}
+                    </span>
+                  )}
+                </Button>
 
-                      {/* Cart: render interactive cart for customers, lightweight disabled button for admin */}
-                      {isAdminRoute ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (!isAuthenticated) { navigate('/login'); return; }
-                            toast({ title: 'Not available', description: 'Cart is a customer feature', variant: 'default' });
-                          }}
-                          className="relative"
-                        >
-                          <ShoppingCart className="h-5 w-5" />
-                        </Button>
-                      ) : (
-                        <Cart />
-                      )}
-                    </>
-                  );
-                })()
-              }
+                {/* Cart */}
+                <Cart />
+              </>
+            )}
 
 
             {/* Account */}

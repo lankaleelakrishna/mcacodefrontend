@@ -56,37 +56,56 @@ const ManageSections = () => {
 
   useEffect(() => {
     loadProducts();
-  }, []);
+    
+    // Refresh data when window regains focus (user comes back from AdminProducts)
+    const handleFocus = () => {
+      console.log('[ManageSections] Window focused, refreshing products...');
+      loadProducts();
+    };
+    
+    // Listen for custom event from AdminProducts and storage changes
+    const handleBestSellerUpdated = () => { console.log('[ManageSections] bestSellerUpdated detected, refreshing products...'); loadProducts(); };
+    const handleStorageChange = (e: StorageEvent) => { if (e.key === 'bestSellers') { console.log('[ManageSections] bestSellers localStorage changed, refreshing products...'); loadProducts(); } };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('bestSellerUpdated', handleBestSellerUpdated);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('bestSellerUpdated', handleBestSellerUpdated);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [token]);
 
   const loadProducts = async () => {
     try {
-      const response = await ApiClient.adminGetPerfumes(token);
-      if (response?.perfumes) {
-        // Normalize product fields so UI can rely on a consistent shape
-        const normalized = response.perfumes.map((p: any) => ({
+      // Load best sellers from localStorage (primary source)
+      console.log('[ManageSections] Loading best sellers from localStorage...');
+      const storedBestSellers = JSON.parse(localStorage.getItem('bestSellers') || '[]');
+      console.log('[ManageSections] Stored best sellers from localStorage:', storedBestSellers);
+      
+      if (storedBestSellers && storedBestSellers.length > 0) {
+        // Normalize stored products
+        const normalized = storedBestSellers.map((p: any) => ({
           id: p.id,
           name: p.name || p.title,
           price: Number(p.price ?? p.discounted_price ?? 0),
           category: p.category ?? 'Uncategorized',
-          // backend may return `is_best_seller` or `isBestSeller` depending on endpoint/transform
-          is_best_seller: (p.is_best_seller ?? p.isBestSeller) ? true : false,
+          is_best_seller: true,
           total_sold: p.total_sold ?? p.totalSold ?? 0,
           discount_percentage: p.discount_percentage ?? p.discountPercentage ?? 0,
           end_date: p.end_date ?? p.endDate ?? null,
           updated_at: p.updated_at ?? p.updatedAt ?? null,
           discounted_price: p.discounted_price ?? p.discountedPrice ?? undefined,
         }));
-        // Merge in any locally-confirmed best-seller flags to avoid flicker
-        const merged = normalized.map((p: any) => ({
-          ...p,
-          is_best_seller: p.is_best_seller || confirmedBestSellerIds.includes(p.id),
-        }));
-        setProducts(merged);
+        console.log('[ManageSections] Normalized best sellers:', normalized);
+        setProducts(normalized);
         return;
       }
-      // If response exists but doesn't include perfumes, log it for debugging
-      console.warn('[ManageSections] adminGetPerfumes returned without perfumes:', response);
-      throw new Error('Unexpected API response');
+      
+      console.log('[ManageSections] No best sellers in localStorage yet');
+      setProducts([]);
     } catch (err) {
       // Detailed error logging
       console.error('Failed to load products:', err);
@@ -140,23 +159,42 @@ const ManageSections = () => {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!window.confirm(`Are you sure you want to delete ${product.name}? This action cannot be undone.`)) {
+    if (!window.confirm(`Are you sure you want to remove ${product.name} from Best Sellers?`)) {
       return;
     }
 
     try {
-      await ApiClient.adminDeletePerfume(product.id, token);
-      await loadProducts();
+      // Remove from localStorage first (primary source)
+      const bestSellersList = JSON.parse(localStorage.getItem('bestSellers') || '[]');
+      const updatedList = bestSellersList.filter((p: any) => p.id !== product.id);
+      localStorage.setItem('bestSellers', JSON.stringify(updatedList));
+      
+      console.log('[ManageSections] Removed from localStorage best sellers:', updatedList);
+      
+      // Immediately update local state to remove from the table
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      // Notify other parts of the app that best sellers changed
+      try { window.dispatchEvent(new Event('bestSellerUpdated')); } catch (e) { /* ignore */ }
+      
+      // Also try to sync with backend
+      try {
+        const formData = new FormData();
+        formData.append('id', String(product.id));
+        formData.append('is_best_seller', 'false');
+        await ApiClient.adminUpdatePerfumeBestSeller(formData, token);
+      } catch (apiErr) {
+        console.warn('[ManageSections] Backend sync failed, but localStorage updated:', apiErr);
+      }
       
       toast({
         title: 'Success',
-        description: `Successfully deleted ${product.name}`,
+        description: `Removed ${product.name} from Best Sellers`,
       });
     } catch (err) {
-      console.error('Failed to delete product:', err);
+      console.error('Failed to remove from best sellers:', err);
       toast({
         title: 'Error',
-        description: 'Failed to delete product.',
+        description: 'Failed to remove from Best Sellers.',
         variant: 'destructive',
       });
     }
@@ -268,9 +306,18 @@ const ManageSections = () => {
         <div className="space-y-6">
           {/* Best Sellers */}
           <Card>
-            <CardHeader>
-              <CardTitle>Best Sellers</CardTitle>
-              <CardDescription>Manage products marked as best sellers</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Best Sellers</CardTitle>
+                <CardDescription>Manage products marked as best sellers</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadProducts}
+              >
+                Refresh
+              </Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -284,47 +331,32 @@ const ManageSections = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map(product => (
-                    <TableRow key={product.id}>
-                      <TableCell>{product.name}</TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell>₹{product.price}</TableCell>
-                      <TableCell>
-                        {product.is_best_seller ? (
-                          <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-2 py-1 text-xs font-semibold">Added</span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-1 text-xs">Not added</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="space-x-2">
-                        {/* Show Add button for non-best-sellers; show a disabled "Added" state for best-sellers */}
-                        {!product.is_best_seller ? (
-                          <Button
-                            variant="default"
-                            onClick={() => toggleBestSeller(product)}
-                            disabled={addingBestSellerIds.includes(product.id)}
-                          >
-                            {addingBestSellerIds.includes(product.id) ? 'Adding…' : 'Add'}
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="default"
-                            className="bg-green-600 text-white"
-                            disabled
-                          >
-                            Added
-                          </Button>
-                        )}
-
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleDelete(product)}
-                        >
-                          Delete
-                        </Button>
+                  {products.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        No best sellers yet. Go to AdminProducts and click "Add to Best Seller" button to add products here.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    products.map(product => (
+                      <TableRow key={product.id}>
+                        <TableCell>{product.name}</TableCell>
+                        <TableCell>{product.category}</TableCell>
+                        <TableCell>₹{product.price}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-2 py-1 text-xs font-semibold">Added</span>
+                        </TableCell>
+                        <TableCell className="space-x-2">
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleDelete(product)}
+                          >
+                            Delete
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

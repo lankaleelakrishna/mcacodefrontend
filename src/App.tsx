@@ -42,31 +42,41 @@ const RoleRedirect = ({ children }) => {
   return children;
 };
 
+const PublicProviders = ({ children }: { children: any }) => (
+  <CartProvider>
+    <LikedProvider>
+      {children}
+    </LikedProvider>
+  </CartProvider>
+);
+
 const App = () => (
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <CartProvider>
-          <LikedProvider>
-            <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <Routes>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
               {/* Redirect admins away from customer pages to admin console */}
               <Route
                 path="/"
                 element={
-                  <RoleRedirect>
-                    <Index />
-                  </RoleRedirect>
+                  <PublicProviders>
+                    <RoleRedirect>
+                      <Index />
+                    </RoleRedirect>
+                  </PublicProviders>
                 }
               />
               <Route
                 path="/products"
                 element={
-                  <RoleRedirect>
-                    <Products />
-                  </RoleRedirect>
+                  <PublicProviders>
+                    <RoleRedirect>
+                      <Products />
+                    </RoleRedirect>
+                  </PublicProviders>
                 }
               />
               <Route path="/collections" element={<ContactUs />} />
@@ -78,21 +88,27 @@ const App = () => (
               <Route path="/cookies" element={<CookiePolicy />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/checkout" element={
-                <ProtectedRoute>
-                  <Checkout />
-                </ProtectedRoute>
+                <PublicProviders>
+                  <ProtectedRoute>
+                    <Checkout />
+                  </ProtectedRoute>
+                </PublicProviders>
               } />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/liked" element={
-                <ProtectedRoute>
-                  <LikedProducts />
-                </ProtectedRoute>
+                <PublicProviders>
+                  <ProtectedRoute>
+                    <LikedProducts />
+                  </ProtectedRoute>
+                </PublicProviders>
               } />
               <Route path="/recent-orders" element={
-                <ProtectedRoute>
-                  <RecentOrders />
-                </ProtectedRoute>
+                <PublicProviders>
+                  <ProtectedRoute>
+                    <RecentOrders />
+                  </ProtectedRoute>
+                </PublicProviders>
               } />
               <Route path="/admin/products" element={
                 <AdminProtectedRoute>
@@ -122,9 +138,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </TooltipProvider>
-          </LikedProvider>
-        </CartProvider>
+        </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
   </BrowserRouter>

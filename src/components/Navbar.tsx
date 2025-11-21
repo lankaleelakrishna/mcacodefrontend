@@ -38,8 +38,10 @@ const Navbar = () => {
       try {
         setOrdersLoading(true);
         const ApiClient = (await import('@/lib/api-client')).ApiClient;
-        const res = await ApiClient.getRecentOrders(token as string, 3);
-        const data = res?.recent_orders || res?.orders || res || [];
+        const res = await ApiClient.getUserOrders(token as string, { limit: 3 });
+        const data = typeof res === 'object' && res !== null
+          ? (res as any).recent_orders || (res as any).orders || res
+          : [];
         if (!mounted) return;
         setRecentOrders(Array.isArray(data) ? data : []);
       } catch (err) {

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { ApiClient } from '../lib/api-client';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from './AuthContext';
+import { useLocation } from 'react-router-dom';
 
 const CartContext = createContext(undefined);
 
@@ -11,11 +12,35 @@ export function CartProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated, token, user } = useAuth();
+  const location = useLocation();
+
+  // Quick short-circuit: if admin user or admin route, provide a noop provider to avoid calling cart APIs
+  const isAdminUserQuick = user?.isAdmin || (user?.role && String(user.role).toLowerCase().includes('admin'));
+  const isAdminRouteQuick = typeof window !== 'undefined' && window.location && String(window.location.pathname).startsWith('/admin');
+  if (isAdminUserQuick || isAdminRouteQuick) {
+    return (
+      <CartContext.Provider value={{
+        items: [],
+        isLoading: false,
+        addItem: async () => {},
+        removeItem: async () => {},
+        updateQuantity: async () => {},
+        clearCart: async () => {},
+        totalItems: 0,
+        totalPrice: 0,
+        refreshCart: async () => {}
+      }}>
+        {children}
+      </CartContext.Provider>
+    );
+  }
 
   // Fetch cart items from the server
   const fetchCartItems = useCallback(async () => {
-    // Do not call customer-only endpoints for admin users
-    if (!isAuthenticated || user?.isAdmin) {
+    // Do not call customer-only endpoints for admin users or when on admin routes
+    const isAdminUser = user?.isAdmin || (user?.role && String(user.role).toLowerCase().includes('admin'));
+    const isAdminRoute = typeof window !== 'undefined' && window.location && String(window.location.pathname).startsWith('/admin');
+    if (!isAuthenticated || isAdminUser || location.pathname.startsWith('/admin') || isAdminRoute) {
       setCartItems([]);
       return;
     }
@@ -35,7 +60,7 @@ export function CartProvider({ children }) {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, toast, token]);
+  }, [isAuthenticated, toast, token, location.pathname]);
 
 
   // Add item to cart
@@ -196,12 +221,18 @@ export function CartProvider({ children }) {
 
   // Fetch cart items when authentication status changes
   useEffect(() => {
+    // Skip cart fetches on admin routes (admin UI should not call customer endpoints)
+    if (location.pathname.startsWith('/admin')) {
+      setCartItems([]);
+      return;
+    }
+
     if (isAuthenticated) {
       fetchCartItems();
     } else {
       setCartItems([]);
     }
-  }, [isAuthenticated, fetchCartItems]);
+  }, [isAuthenticated, fetchCartItems, location.pathname]);
 
   return (
     <CartContext.Provider
@@ -228,6 +259,19 @@ CartProvider.propTypes = {
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (!context) throw new Error("useCart must be used within CartProvider");
+  if (!context) {
+    // Return safe no-op defaults when CartProvider is not mounted (admin pages)
+    return {
+      items: [],
+      isLoading: false,
+      addItem: async () => {},
+      removeItem: async () => {},
+      updateQuantity: async () => {},
+      clearCart: async () => {},
+      totalItems: 0,
+      totalPrice: 0,
+      refreshCart: async () => {},
+    };
+  }
   return context;
 }

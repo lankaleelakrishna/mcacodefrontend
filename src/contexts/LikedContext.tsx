@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 
 interface LikedContextType {
   likedProducts: string[];
@@ -21,15 +22,37 @@ export function LikedProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, token } = useAuth();
+  const location = useLocation();
+
+  // Quick short-circuit: if admin user or admin route, provide a noop provider
+  const isAdminUserQuick = user?.isAdmin || (user?.role && String(user.role).toLowerCase().includes('admin'));
+  const isAdminRouteQuick = typeof window !== 'undefined' && window.location && String(window.location.pathname).startsWith('/admin');
+  if (isAdminUserQuick || isAdminRouteQuick) {
+    // Return provider immediately without mounting effects that call customer-only endpoints
+    return (
+      <LikedContext.Provider value={{
+        likedProducts: [],
+        addToLiked: async () => {},
+        removeFromLiked: async () => {},
+        isLiked: () => false,
+        isLoading: false,
+        error: null
+      }}>
+        {children}
+      </LikedContext.Provider>
+    );
+  }
 
   // Load liked products from API when user logs in
   useEffect(() => {
     let isMounted = true;
 
     async function fetchLikedProducts() {
-      // Skip fetching favorites for admin users (customer-only endpoint)
-      if (user?.isAdmin) {
-        console.log('Admin user detected — skipping favorites fetch');
+      // Skip fetching favorites for admin users or when on admin pages (customer-only endpoint)
+      const isAdminUser = user?.isAdmin || (user?.role && String(user.role).toLowerCase().includes('admin'));
+      const isAdminRoute = typeof window !== 'undefined' && window.location && String(window.location.pathname).startsWith('/admin');
+      if (isAdminUser || location.pathname.startsWith('/admin') || isAdminRoute) {
+        console.log('Admin context or admin route detected — skipping favorites fetch');
         setLikedProducts([]);
         setIsLoading(false);
         return;
@@ -119,7 +142,7 @@ export function LikedProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [user?.id, token]);
+  }, [user?.id, token, location.pathname]);
 
   const addToLiked = async (productId: string) => {
     if (!user || !token) {
@@ -237,7 +260,15 @@ export function LikedProvider({ children }: { children: React.ReactNode }) {
 export function useLiked() {
   const context = useContext(LikedContext);
   if (context === undefined) {
-    throw new Error('useLiked must be used within a LikedProvider');
+    // Return a safe fallback so components can be rendered outside of provider (e.g., admin pages)
+    return {
+      likedProducts: [],
+      addToLiked: async () => {},
+      removeFromLiked: async () => {},
+      isLiked: () => false,
+      isLoading: false,
+      error: null,
+    } as any;
   }
   return context;
 }
