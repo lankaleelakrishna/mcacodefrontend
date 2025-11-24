@@ -11,7 +11,7 @@ const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
 
   // Check if user is authenticated and has admin role
   if (!isAuthenticated || !user?.isAdmin) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   return <>{children}</>;

@@ -14,7 +14,12 @@ interface ProductCardProps {
   product: Product;
 }
 
-const ProductCard = ({ product }: ProductCardProps) => {
+// Accept an optional prop to control badge display
+interface ProductCardPropsWithBadges extends ProductCardProps {
+  hideSaleBadges?: boolean;
+}
+
+const ProductCard = ({ product, hideSaleBadges = false }: ProductCardPropsWithBadges) => {
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { toast } = useToast();
@@ -132,33 +137,33 @@ const ProductCard = ({ product }: ProductCardProps) => {
           {product.isNew && (
             <Badge className="gradient-gold text-foreground">New</Badge>
           )}
-          {product.isSale && (
+          {/* Hide Sale and discount badges if hideSaleBadges is true */}
+          {!hideSaleBadges && product.isSale && (
             <Badge variant="destructive">Sale</Badge>
           )}
-          {/* Show discount percent if available or compute from originalPrice */}
-            {(() => {
-              const orig = (product as any).originalPrice ?? null;
-              const sale = Number(product.price ?? 0);
-              const pctField = (product as any).discountPercentage ?? (product as any).discounted_percentage ?? null;
-              const endDateField = (product as any).discountEndDate ?? (product as any).end_date ?? (product as any).endDate ?? null;
+          {!hideSaleBadges && (() => {
+            const orig = (product as any).originalPrice ?? null;
+            const sale = Number(product.price ?? 0);
+            const pctField = (product as any).discountPercentage ?? (product as any).discounted_percentage ?? null;
+            const endDateField = (product as any).discountEndDate ?? (product as any).end_date ?? (product as any).endDate ?? null;
 
-              // If an end date exists and it's in the past, don't show any discount
-              if (endDateField) {
-                const end = typeof endDateField === 'string' ? new Date(endDateField) : (endDateField instanceof Date ? endDateField : new Date(endDateField));
-                if (isFinite(end.getTime()) && end.getTime() < Date.now()) return null;
-              }
+            // If an end date exists and it's in the past, don't show any discount
+            if (endDateField) {
+              const end = typeof endDateField === 'string' ? new Date(endDateField) : (endDateField instanceof Date ? endDateField : new Date(endDateField));
+              if (isFinite(end.getTime()) && end.getTime() < Date.now()) return null;
+            }
 
-              let pct = null as number | null;
-              if (typeof pctField === 'number') pct = pctField;
-              else if (typeof pctField === 'string' && pctField !== '') pct = Number(pctField);
-              else if (orig && Number(orig) > sale) {
-                pct = Math.round(((Number(orig) - sale) / Number(orig)) * 100);
-              }
-              if (pct && pct > 0) {
-                return <Badge className="bg-rose-500 text-white">-{pct}%</Badge>;
-              }
-              return null;
-            })()}
+            let pct = null as number | null;
+            if (typeof pctField === 'number') pct = pctField;
+            else if (typeof pctField === 'string' && pctField !== '') pct = Number(pctField);
+            else if (orig && Number(orig) > sale) {
+              pct = Math.round(((Number(orig) - sale) / Number(orig)) * 100);
+            }
+            if (pct && pct > 0) {
+              return <Badge className="bg-rose-500 text-white">-{pct}%</Badge>;
+            }
+            return null;
+          })()}
         </div>
       </div>
 

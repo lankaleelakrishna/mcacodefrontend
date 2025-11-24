@@ -49,12 +49,30 @@ export function Reviews({ productId }: ReviewsProps) {
       setLoadingReviews(true);
       try {
         if (productId === "all") {
-          const res = await ApiClient.getAllReviews();
+            const res = await fetch(`${API_BASE}/reviews`);
+            if (!res.ok) throw new Error("Failed to fetch all reviews");
+            const data = await res.json();
+            // Normalize reviews to match Review interface
+            const reviewsList = (data.reviews || []).map((r: any) => ({
+            review_id: r.review_id ?? r.id,
+            perfume_id: r.perfume_id,
+            perfume_name: r.perfume_name ?? "",
+            user_id: r.user_id,
+            user_name: r.user_name ?? r.username ?? "",
+            rating: r.rating,
+            comment: r.comment,
+            created_at: r.created_at,
+            })) as Review[];
+            const resObj = {
+            reviews: reviewsList,
+            global_average_rating: data.global_average_rating,
+            total_reviews: data.total_reviews,
+            };
           console.debug('[Reviews] getAllReviews response:', res);
 
-          setReviews(res.reviews);
-          setAvgRating(res.global_average_rating);
-          setTotalReviews(res.total_reviews);
+          setReviews(reviewsList);
+          setAvgRating(resObj.global_average_rating);
+          setTotalReviews(resObj.total_reviews);
           return;
         }
 
@@ -368,18 +386,23 @@ export function Reviews({ productId }: ReviewsProps) {
           <h3 className="text-lg font-medium mb-4">Write a Review</h3>
           <div className="space-y-4 max-w-2xl">
             <div>
-              <label className="block text-sm font-medium mb-1">Rating</label>
-              <select
-                value={newRating}
-                onChange={(e) => setNewRating(Number(e.target.value))}
-                className="w-full max-w-xs border rounded-md px-3 py-2 text-sm"
-              >
-                {[5, 4, 3, 2, 1].map((n) => (
-                  <option key={n} value={n}>
-                    {n} Star{n > 1 ? "s" : ""}
-                  </option>
+              <label className="block text-sm font-medium mb-2">Rating</label>
+              <div className="flex items-center gap-2">
+                {[1,2,3,4,5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-label={`${n} Star${n > 1 ? 's' : ''}`}
+                    onClick={() => setNewRating(n)}
+                    onMouseEnter={() => { /* optional: could set hover state */ }}
+                    className={`text-2xl ${n <= newRating ? 'text-yellow-400' : 'text-gray-300'} focus:outline-none`}
+                    style={{ lineHeight: 1 }}
+                  >
+                    ★
+                  </button>
                 ))}
-              </select>
+                <div className="text-sm text-muted-foreground">{newRating} / 5</div>
+              </div>
             </div>
 
             <div>

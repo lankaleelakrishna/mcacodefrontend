@@ -30,10 +30,25 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
-          <div>
-            <h3 className="text-2xl font-bold text-primary mb-4">
-              MCA Fashion
-            </h3>
+          <div className="flex flex-col items-start">
+            <div className="flex items-center mb-4">
+              <img
+                src="/logo.jpeg"
+                alt="MCA Fashions Logo"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '8px',
+                  marginRight: '10px',
+                  background: '#fff',
+                  objectFit: 'contain',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)'
+                }}
+              />
+              <h3 className="text-2xl font-bold text-primary">
+                MCA Fashion
+              </h3>
+            </div>
             <p className="text-muted-foreground mb-4">
               Designer wear for women crafted with care. Discover your signature style.
             </p>
@@ -68,7 +83,7 @@ const Footer = () => {
               <li><button onClick={() => handleNavigation('/contact')} className="hover:text-primary transition-colors text-left">Contact Us</button></li>
               <li><button onClick={() => handleNavigation('/', 'faq')} className="hover:text-primary transition-colors text-left">FAQ</button></li>
               <li><a href="#" className="hover:text-primary transition-colors">Size Guide</a></li>
-              <li><button onClick={() => handleNavigation('/orders')} className="hover:text-primary transition-colors text-left">Track Order</button></li>
+              <li><a href="https://www.dtdc.com/track-your-shipment/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors text-left">Track Order</a></li>
             </ul>
           </div>
 

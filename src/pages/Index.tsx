@@ -187,7 +187,7 @@ const Index = () => {
               ) : bestSellers.length > 0 ? (
                 // Products found
                 bestSellers.slice(0, 4).map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} hideSaleBadges={true} />
                 ))
               ) : (
                 // No products found
@@ -225,7 +225,7 @@ const Index = () => {
                 ))
               ) : newArrivals.length > 0 ? (
                 newArrivals.slice(0, 4).map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} hideSaleBadges={true} />
                 ))
               ) : (
                 <div className="col-span-full text-center py-8">

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +46,30 @@ const AdminOrders = () => {
   useEffect(() => {
     loadOrders();
   }, [token, page, statusFilter, dateRange]);
+
+  const [shipmentInputs, setShipmentInputs] = useState<Record<string, string>>({});
+
+  const handleShipmentChange = (orderId: string | number, value: string) => {
+    setShipmentInputs(prev => ({ ...prev, [String(orderId)]: value }));
+  };
+
+  const saveShipmentId = async (orderId: string | number) => {
+    if (!token) return;
+    const sid = shipmentInputs[String(orderId)];
+    if (!sid) return toast({ title: 'No Shipment ID', description: 'Please enter a shipment id', variant: 'default' });
+    try {
+      setLoading(true);
+      await ApiClient.adminUpdateOrderShipment(orderId, sid, token as string);
+      toast({ title: 'Saved', description: 'Shipment id saved', variant: 'default' });
+      // Update local state to show shipment id
+      setOrders(prev => prev.map(o => (o.id == orderId || o.order_id == orderId ? { ...o, shipment_id: sid, tracking_number: sid } : o)));
+    } catch (err: any) {
+      console.error('Failed to save shipment id', err);
+      toast({ title: 'Error', description: 'Failed to save shipment id', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const prev = () => setPage(p => Math.max(1, p - 1));
   const next = () => setPage(p => Math.min(totalPages || 1, p + 1));
@@ -114,6 +139,34 @@ const AdminOrders = () => {
                 <div>{o.shipping_first_name} {o.shipping_last_name}</div>
                 <div className="text-sm">{o.shipping_address}, {o.shipping_city} {o.shipping_state} {o.shipping_zip}</div>
                 <div className="text-sm">{o.shipping_phone} • {o.shipping_email}</div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Shipment / Tracking</h4>
+              <div className="flex items-center gap-3">
+                {(o.shipment_id || o.tracking_number) ? (
+                  <>
+                    <a href={`https://www.dtdc.com/track-your-shipment/`} target="_blank" rel="noopener noreferrer" className="text-primary underline">{o.shipment_id || o.tracking_number}</a>
+                    <Input
+                      value={shipmentInputs[String(o.id)] ?? ''}
+                      onChange={(e) => handleShipmentChange(o.id, (e.target as HTMLInputElement).value)}
+                      placeholder="Edit shipment id"
+                      className="w-56"
+                    />
+                    <Button onClick={() => saveShipmentId(o.id)}>Save</Button>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      value={shipmentInputs[String(o.id)] ?? ''}
+                      onChange={(e) => handleShipmentChange(o.id, (e.target as HTMLInputElement).value)}
+                      placeholder="Enter shipment id"
+                      className="w-56"
+                    />
+                    <Button onClick={() => saveShipmentId(o.id)}>Save</Button>
+                  </>
+                )}
               </div>
             </div>
 

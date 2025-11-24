@@ -70,14 +70,21 @@ const Navbar = () => {
       <nav className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center">
-          <img src="/logo1.jpg" alt=""  style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            marginRight: '8px',
-          }}/>
-              <h1 className="text-3xl md:text-4xl font-brand font-black tracking-wider bg-gradient-to-r from-accent to-yellow-600 bg-clip-text text-transparent">
-                MCA Fashion
+            <img
+              src="/logo.jpeg"
+              alt="MCA Fashions Logo"
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                marginRight: '12px',
+                background: '#fff',
+                objectFit: 'contain',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.07)'
+              }}
+            />
+            <h1 className="text-3xl md:text-4xl font-brand font-black tracking-wider bg-gradient-to-r from-accent to-yellow-600 bg-clip-text text-transparent flex items-center">
+              MCA Fashion
             </h1>
           </Link>
 

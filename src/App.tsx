@@ -20,8 +20,11 @@ import { Navigate } from "react-router-dom";
 import ProductDetail from "./pages/ProductDetail";
 import Checkout from "./pages/Checkout";
 import About from "./pages/About";
-import Login from "./pages/Login";
+import Login from "@/components/account/Login";
 import Signup from "./pages/Signup";
+import AdminSignup from "@/components/account/AdminSignup";
+import CustomerSignup from "@/components/account/CustomerSignup";
+import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 import LikedProducts from "./pages/LikedProducts";
 import ContactUs from "./pages/ContactUs";
@@ -95,7 +98,10 @@ const App = () => (
                 </PublicProviders>
               } />
               <Route path="/login" element={<Login />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/signup" element={<Signup />} />
+                <Route path="/admin/signup" element={<AdminSignup />} />
+                <Route path="/customer/signup" element={<CustomerSignup />} />
               <Route path="/liked" element={
                 <PublicProviders>
                   <ProtectedRoute>

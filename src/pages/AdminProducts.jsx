@@ -708,7 +708,7 @@ export default function AdminProducts() {
                   );
                 })()}
               </div>
-              <div style={{ marginTop: 6 }}>${Number(p.price || p.price === 0 ? p.price : 0).toFixed(2)}</div>
+              <div style={{ marginTop: 6 }}>₹{Number(p.price || p.price === 0 ? p.price : 0).toFixed(2)}</div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: 'center' }}>
               <Button size="sm" variant="outline" onClick={() => handleEdit(p)}>

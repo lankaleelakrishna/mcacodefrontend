@@ -74,7 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(newToken);
     const u = parseJwt(newToken);
     setUser(u);
-    navigate('/');
   };
 
   const logout = () => {

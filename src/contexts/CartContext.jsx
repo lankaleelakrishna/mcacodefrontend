@@ -76,8 +76,8 @@ export function CartProvider({ children }) {
 
     try {
       setIsLoading(true);
-      console.debug('[CartContext] addItem token:', token, 'productId:', product.id);
-      const res = await ApiClient.addToCart([{ perfume_id: product.id, quantity: 1 }], token);
+      console.debug('[CartContext] addItem token:', token, 'productId:', product.id, 'size:', size);
+      const res = await ApiClient.addToCart([{ perfume_id: product.id, quantity: 1, size: size }], token);
       console.debug('[CartContext] addItem response:', res);
       await fetchCartItems(); // Refresh cart after adding
       toast({

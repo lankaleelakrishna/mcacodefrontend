@@ -23,8 +23,8 @@ const faqs = [
     answer: "Yes, we are committed to sustainability. We use eco-friendly materials where possible, implement sustainable manufacturing practices, and continuously work to reduce our environmental impact."
   },
   {
-    question: "How should I store my perfume?",
-    answer: "Store your perfume in a cool, dry place away from direct sunlight and heat. Avoid storing in the bathroom as humidity can affect the fragrance. Keep the bottle sealed when not in use for maximum longevity."
+    question: "How should I care for my clothing?",
+    answer: "To keep your garments looking their best, always follow the care label. Wash similar colors together and use gentle cycles for delicate fabrics. Prefer cold water when recommended and avoid tumble-drying when possible — air dry flat or hang to preserve shape. For structured or delicate pieces, consider professional dry cleaning. Store clothing in a cool, dry place away from direct sunlight; use padded hangers for coats and jackets and fold knitwear to prevent stretching."
   }
 ];
 

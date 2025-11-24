@@ -823,4 +823,58 @@ export class ApiClient {
       headers: token ? { Authorization: token } : {},
     });
   }
+
+  // Update an order (admin). Attempt to send shipment/tracking id to backend.
+  // This method uses a PUT to `/admin/orders/:id` with JSON body { shipment_id }
+  // Backend teams may accept other shapes; adapt if needed.
+  static async adminUpdateOrderShipment(orderId: number | string, shipmentId: string, token?: string) {
+    const idStr = String(orderId);
+    const jsonBody = JSON.stringify({ shipment_id: shipmentId });
+
+    // Attempt 1: PUT /admin/orders/:id (most RESTful)
+    try {
+      return await this.request(`/admin/orders/${idStr}`, {
+        method: 'PUT',
+        body: jsonBody,
+        headers: token ? { Authorization: token } : {},
+      });
+    } catch (err1) {
+      console.warn('[ApiClient] adminUpdateOrderShipment: attempt 1 failed', err1);
+      // Attempt 2: PUT /admin/orders with body { id, shipment_id }
+      try {
+        return await this.request(`/admin/orders`, {
+          method: 'PUT',
+          body: JSON.stringify({ id: orderId, shipment_id: shipmentId }),
+          headers: token ? { Authorization: token } : {},
+        });
+      } catch (err2) {
+        console.warn('[ApiClient] adminUpdateOrderShipment: attempt 2 failed', err2);
+        // Attempt 3: POST /admin/orders with form-encoded body (some backends expect form data)
+        try {
+          const formBody = `id=${encodeURIComponent(idStr)}&shipment_id=${encodeURIComponent(shipmentId)}`;
+          return await this.request(`/admin/orders`, {
+            method: 'POST',
+            body: formBody,
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              ...(token ? { Authorization: token } : {}),
+            },
+          });
+        } catch (err3) {
+          console.warn('[ApiClient] adminUpdateOrderShipment: attempt 3 failed', err3);
+          // Attempt 4: POST to a shipment-specific route (fallback)
+          try {
+            return await this.request(`/admin/orders/shipment`, {
+              method: 'POST',
+              body: jsonBody,
+              headers: token ? { Authorization: token } : {},
+            });
+          } catch (err4) {
+            console.error('[ApiClient] adminUpdateOrderShipment: all attempts failed');
+            throw err4;
+          }
+        }
+      }
+    }
+  }
 }

@@ -25,6 +25,7 @@ export default function RecentOrders() {
     const prefetched = (location.state as any)?.recentOrders;
     if (prefetched && Array.isArray(prefetched)) {
       const normalized = (prefetched || []).map((o: any) => {
+        const trackingVal = o.shipment_id || o.tracking_id || o.tracking_number || o.tracking || o.trackingId || o.shipmentId || o.shipment;
         if (o.order_id && !o.id) {
           return {
             id: o.order_id,
@@ -32,6 +33,7 @@ export default function RecentOrders() {
             shipping_city: o.city || o.shipping_city,
             status: o.status,
             total_amount: o.grand_total ?? o.total_amount ?? o.total,
+            tracking: trackingVal,
             items: (o.items || []).map((it: any) => ({
               name: it.name,
               quantity: it.quantity,
@@ -46,6 +48,7 @@ export default function RecentOrders() {
           shipping_city: o.shipping_city || o.city,
           status: o.status,
           total_amount: o.total_amount ?? o.total ?? o.grand_total,
+          tracking: trackingVal,
           items: (o.items || []).map((it: any) => ({
             name: it.name,
             quantity: it.quantity,
@@ -68,6 +71,7 @@ export default function RecentOrders() {
         if (!mounted) return;
         // Normalize compact shape if necessary
         const normalized = (Array.isArray(data) ? data : []).map((o: any) => {
+          const trackingVal = o.shipment_id || o.tracking_id || o.tracking_number || o.tracking || o.trackingId || o.shipmentId || o.shipment;
           // If backend returned compact recent_orders (order_id, date, time, grand_total, items)
           if (o.order_id && !o.id) {
             return {
@@ -76,6 +80,7 @@ export default function RecentOrders() {
               shipping_city: o.city || o.shipping_city,
               status: o.status,
               total_amount: o.grand_total ?? o.total_amount ?? o.total,
+              tracking: trackingVal,
               items: (o.items || []).map((it: any) => ({
                 name: it.name,
                 quantity: it.quantity,
@@ -91,6 +96,7 @@ export default function RecentOrders() {
             shipping_city: o.shipping_city || o.city,
             status: o.status,
             total_amount: o.total_amount ?? o.total ?? o.grand_total,
+            tracking: trackingVal,
             items: (o.items || []).map((it: any) => ({
               name: it.name,
               quantity: it.quantity,
@@ -181,6 +187,12 @@ export default function RecentOrders() {
                   </div>
 
                   <div className="grid gap-3">
+                    {order.tracking ? (
+                      <div className="mb-2">
+                        <strong className="mr-2">Tracking:</strong>
+                        <a href={`https://www.dtdc.com/track-your-shipment/`} target="_blank" rel="noopener noreferrer" className="text-primary underline">{order.tracking}</a>
+                      </div>
+                    ) : null}
                     {(order.items || []).map((it: any, idx: number) => (
                       <div key={idx} className="flex gap-3 items-center border-b pb-2">
                         <img src={it.photo_url ?? '/images/placeholder.png'} alt={it.name} className="w-16 h-16 object-cover rounded" />

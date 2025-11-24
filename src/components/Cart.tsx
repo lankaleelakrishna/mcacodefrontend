@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
 import { useNavigate } from "react-router-dom";
 
+
 export default function Cart() {
   const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart();
   const navigate = useNavigate();
@@ -35,45 +36,44 @@ export default function Cart() {
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto py-6 space-y-4">
               {items.map((item) => (
-                <div key={`${item.id}-${item.selectedSize}`} className="flex gap-4 border-b pb-4">
-                    <img
-                      src={(item as any).image ?? "/placeholder.png"}
-                      alt={(item as any).name ?? "Product"}
-                      className="w-24 h-24 object-cover rounded-md"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{(item as any).name ?? "Product"}</h3>
-                    <p className="text-sm text-muted-foreground mb-2">{item.selectedSize}</p>
-                    <p className="font-bold">₹{item.price}</p>
-                    
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity - 1)}
-                        disabled={item.quantity <= 1}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity + 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 ml-auto"
-                        onClick={() => removeItem(item.id, item.selectedSize)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                <div key={`${item.id}-${item.size}`} className="flex gap-4 border-b pb-4">
+                  <img
+                  src={item.photo_url ?? "/placeholder.png"}
+                  alt={item.name ?? "Product"}
+                  className="w-24 h-24 object-cover rounded-md"
+                  />
+                  <div className="flex-1">
+                  <h3 className="font-semibold mb-1">{item.name ?? "Product"}</h3>
+                  <p className="text-sm text-muted-foreground mb-2">{item.size}</p>
+                  <p className="font-bold">₹{item.price}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
+                    onClick={() => updateQuantity(item.id, item.size, item.quantity - 1)}
+                    disabled={item.quantity <= 1}
+                    >
+                    <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-8 text-center">{item.quantity}</span>
+                    <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
+                    onClick={() => updateQuantity(item.id, item.size, item.quantity + 1)}
+                    >
+                    <Plus className="h-3 w-3" />
+                    </Button>
+                    <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 ml-auto"
+                    onClick={() => removeItem(item.id, item.size)}
+                    >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                   </div>
                 </div>
               ))}

@@ -1,149 +1,130 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { Product } from "@/data/products";
 import { useAuth } from "./AuthContext";
+import { ApiClient } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
 
-interface CartItem extends Partial<Product> {
+
+interface CartItem {
   id: number;
-  // cart_id is the local cart-row identifier (mirrors backend carts table id when synced)
-  cart_id: number;
-  quantity: number;
-  // selectedSize may be undefined for products without variants
-  selectedSize?: string | null;
-  // price may come from Product but ensure it's present on cart items
+  perfume_id: number;
+  name: string;
   price: number;
-  // optional image fields (different datasets use different keys)
-  image?: string;
-  images?: string[];
+  quantity: number;
+  size?: string;
   photo_url?: string;
-  name?: string;
+  in_stock?: boolean;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, size: string) => void;
-  // identify items by product id + selectedSize to support multiple variants of same product
-  removeItem: (productId: number, selectedSize?: string) => void;
-  updateQuantity: (productId: number, selectedSize: string, quantity: number) => void;
-  clearCart: () => void;
+  addItem: (product: Product, size?: string) => Promise<void>;
+  removeItem: (productId: number, size?: string) => Promise<void>;
+  updateQuantity: (productId: number, size: string | undefined, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   totalItems: number;
   totalPrice: number;
+  refreshCart: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { requireAuth, user } = useAuth();
-
-  // keep cart per-user in localStorage using `vasa-cart-<userId>` key
+  const { user, token, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load cart when user changes (or on mount)
-  useEffect(() => {
-    try {
-      if (user && user.id !== undefined && user.id !== null) {
-        const key = `vasa-cart-${user.id}`;
-        // migrate legacy cart saved under `vasa-cart` (if present)
-        const legacy = localStorage.getItem('vasa-cart');
-        if (legacy) {
-          try {
-            const legacyItems = JSON.parse(legacy);
-            const existing = localStorage.getItem(key);
-            if (!existing) {
-              localStorage.setItem(key, JSON.stringify(legacyItems));
-              localStorage.removeItem('vasa-cart');
-              console.debug('[CartContext] migrated legacy cart to', key);
-            }
-          } catch (err) {
-            console.error('[CartContext] failed to migrate legacy cart', err);
-          }
-        }
-        const saved = localStorage.getItem(key);
-        console.debug('[CartContext] loading cart for user', { key, saved });
-        setItems(saved ? JSON.parse(saved) : []);
-      } else {
-        // no logged-in user => empty cart
-        setItems([]);
-      }
-    } catch (err) {
-      console.error('[CartContext] failed to load cart', err);
+  // Fetch cart items from backend
+  const fetchCart = useCallback(async () => {
+    if (!isAuthenticated || !token) {
       setItems([]);
+      return;
     }
-  }, [user]);
-
-  // Persist cart for current user
-  useEffect(() => {
     try {
-      if (user && user.id !== undefined && user.id !== null) {
-        const key = `vasa-cart-${user.id}`;
-        localStorage.setItem(key, JSON.stringify(items));
-        console.debug('[CartContext] saved cart for user', { key, items });
-      }
+      setIsLoading(true);
+      const res = await ApiClient.getCart(token);
+      setItems(res.cart_items || []);
     } catch (err) {
-      console.error('[CartContext] failed to save cart', err);
-    }
-  }, [items, user]);
-
-  const addItem = (product: Product, size: string) => {
-    // require a resolved user id to avoid writing into a wrong key
-    if (!user || user.id === undefined || user.id === null) {
-      console.warn('[CartContext] addItem aborted: user not resolved yet');
-      return;
-    }
-    requireAuth(() => {
-      setItems(current => {
-        const existing = current.find(item => item.id === product.id && item.selectedSize === size);
-        if (existing) {
-          return current.map(item =>
-            item.id === product.id && item.selectedSize === size
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          );
-        }
-        const maxCartId = Math.max(0, ...current.map(item => item.cart_id));
-        return [...current, { ...product, quantity: 1, selectedSize: size, cart_id: maxCartId + 1 }];
-      });
-    });
-  };
-
-  const removeItem = (productId: number, selectedSize?: string) => {
-    if (!user || user.id === undefined || user.id === null) {
-      console.warn('[CartContext] removeItem aborted: user not resolved yet');
-      return;
-    }
-    requireAuth(() => {
-      // if selectedSize is provided, remove only that variant; otherwise remove all items with the id
-      setItems(current =>
-        current.filter(item => {
-          if (item.id !== productId) return true;
-          if (selectedSize) return item.selectedSize !== selectedSize;
-          return false;
-        })
-      );
-    });
-  };
-
-  const updateQuantity = (productId: number, selectedSize: string, quantity: number) => {
-    if (!user || user.id === undefined || user.id === null) {
-      console.warn('[CartContext] updateQuantity aborted: user not resolved yet');
-      return;
-    }
-    requireAuth(() => {
-      if (quantity <= 0) {
-        removeItem(productId, selectedSize);
-        return;
-      }
-      setItems(current =>
-        current.map(item =>
-          item.id === productId && item.selectedSize === selectedSize ? { ...item, quantity } : item
-        )
-      );
-    });
-  };
-
-  const clearCart = () => {
-    requireAuth(() => {
       setItems([]);
-    });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
+
+  // Add item to cart (backend)
+  const addItem = async (product: Product, size?: string) => {
+    if (!isAuthenticated || !token) {
+      toast({ title: 'Login required', description: 'Please login to add items to cart', variant: 'destructive' });
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await ApiClient.addToCart([
+        { perfume_id: product.id, quantity: 1, size }
+      ], token);
+      await fetchCart();
+      toast({ title: 'Added to cart', description: `${product.name}${size ? ` (${size})` : ''} added to cart.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to add to cart', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Remove item from cart (backend)
+  const removeItem = async (productId: number, size?: string) => {
+    if (!isAuthenticated || !token) return;
+    try {
+      setIsLoading(true);
+      await ApiClient.removeFromCart(productId, token);
+      await fetchCart();
+      toast({ title: 'Removed', description: 'Item removed from cart.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to remove item', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update quantity (remove then add with new quantity)
+  const updateQuantity = async (productId: number, size: string | undefined, quantity: number) => {
+    if (!isAuthenticated || !token) return;
+    if (quantity <= 0) {
+      await removeItem(productId, size);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await ApiClient.removeFromCart(productId, token);
+      await ApiClient.addToCart([{ perfume_id: productId, quantity, size }], token);
+      await fetchCart();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to update cart', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clear cart (remove all items)
+  const clearCart = async () => {
+    if (!isAuthenticated || !token) return;
+    try {
+      setIsLoading(true);
+      for (const item of items) {
+        await ApiClient.removeFromCart(item.perfume_id, token);
+      }
+      await fetchCart();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to clear cart', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -151,7 +132,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}
+      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice, refreshCart: fetchCart }}
     >
       {children}
     </CartContext.Provider>

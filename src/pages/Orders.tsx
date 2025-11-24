@@ -26,7 +26,9 @@ export default function Orders() {
           headers: { Authorization: token }
         });
   const data = await res.json();
-        const list = data.recent_orders || data.recentOrders || [];
+        // Debug: log full response so we can see whether shipment/tracking fields are present
+        console.debug('[Orders] /recent-orders response', data);
+        const list = data.recent_orders || data.recentOrders || data.orders || [];
         setOrders(list);
       } catch (e) {
         console.error('Failed to load recent orders', e);
@@ -64,6 +66,21 @@ export default function Orders() {
                   <div className="text-sm text-muted-foreground">{o.items_count} {o.items_count === 1 ? 'item' : 'items'}</div>
                 </div>
               </div>
+
+                {
+                  (() => {
+                    const trackingVal = o.shipment_id || o.tracking_id || o.tracking_number || o.tracking || o.trackingId || o.shipmentId || o.shipment;
+                    if (!trackingVal) return null;
+                    // If you have a carrier-specific tracking URL template you can build it here.
+                    // For now, link to DTDC tracking landing page and show the id as link text.
+                    return (
+                      <div className="mb-3">
+                        <strong className="mr-2">Tracking:</strong>
+                        <a href={`https://www.dtdc.com/track-your-shipment/`} target="_blank" rel="noopener noreferrer" className="text-primary underline">{trackingVal}</a>
+                      </div>
+                    );
+                  })()
+                }
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {o.items.map((it) => (

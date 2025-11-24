@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,55 @@ import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/hooks/use-toast";
 import { ApiClient } from "@/lib/api-client";
+const formatPriceINR = (amount: number) =>
+  amount?.toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  });
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { items: cartItems, totalPrice: cartTotal, clearCart } = useCart();
+  const location = useLocation();
+  // Use 'any' type to access cart from JSX CartContext which TypeScript doesn't have type info for
+  const { items: cartItems, totalPrice: cartTotal } = useCart() as any;
   const { toast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+
+  // Clear checkout item when navigating away if no interaction
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!hasInteracted) {
+        sessionStorage.removeItem('checkout-item');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      if (!hasInteracted) {
+        sessionStorage.removeItem('checkout-item');
+      }
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasInteracted]);
+
+  // Track any form interaction
+  const handleFormInteraction = () => {
+    setHasInteracted(true);
+  };
+
+  // Monitor input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setHasInteracted(true);
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -32,6 +74,32 @@ export default function Checkout() {
     cvv: "",
   });
 
+  // Handle page leave/navigation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasInteracted) {
+        sessionStorage.removeItem('checkout-item');
+      }
+    };
+
+    const unloadCallback = () => {
+      if (!hasInteracted) {
+        sessionStorage.removeItem('checkout-item');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', unloadCallback);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', unloadCallback);
+      if (!hasInteracted) {
+        sessionStorage.removeItem('checkout-item');
+      }
+    };
+  }, [hasInteracted]);
+
   // Support single-item checkout initiated from product "Buy Now" button
   let checkoutItems = cartItems;
   let checkoutTotal = cartTotal;
@@ -39,12 +107,12 @@ export default function Checkout() {
     const raw = typeof window !== 'undefined' ? sessionStorage.getItem('checkout-item') : null;
     if (raw) {
       const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
-      checkoutItems = parsed.items;
-      // support both totalPrice and total
-      checkoutTotal = Number(parsed.totalPrice ?? parsed.total ?? 0);
-      // keep checkout-item in sessionStorage until order completes
-    }
+      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+        checkoutItems = parsed.items;
+        // support both totalPrice and total
+        checkoutTotal = Number(parsed.totalPrice ?? parsed.total ?? 0);
+        // keep checkout-item in sessionStorage until order completes
+      }
     }
   } catch (err) {
     console.debug('[Checkout] failed to parse checkout-item from sessionStorage', err);
@@ -61,6 +129,7 @@ export default function Checkout() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHasInteracted(true);
     
     // Validate all required shipping fields first
     const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zip'];
@@ -138,7 +207,6 @@ export default function Checkout() {
           // match backend expected shape
           perfume_id: Number(item.perfume_id ?? item.id),
           quantity: Number(item.quantity || 1),
-          selectedSize: item.selectedSize ?? item.size ?? null,
           price: Number(item.price ?? item.unit_price ?? 0)
         })),
         totalPrice: parseFloat(checkoutTotal.toFixed(2)),
@@ -192,8 +260,7 @@ export default function Checkout() {
   // Debug: log payload so you can inspect what will be sent to the backend
   console.debug('Checkout payload', orderData);
 
-  // Send the order payload to the backend directly (include raw token)
-  // Use ApiClient.checkout which posts to `/checkout` and centralizes headers/response handling
+  // Use ApiClient.checkout which sends the JWT token directly in Authorization header
   const data = await ApiClient.checkout(orderData, token as string);
 
       // Show success message based on payment method and status
@@ -209,11 +276,45 @@ export default function Checkout() {
         });
       }
 
-  // Clear cart only after successful order
-  clearCart();
+      // Save any remaining items locally in case backend clears the cart during checkout
+      try {
+        const orderedIds = new Set(checkoutItems.map((it: any) => Number(it.perfume_id ?? it.id)));
+        const remainingItems = (cartItems || []).filter((it: any) => !orderedIds.has(Number(it.perfume_id ?? it.id)));
+        if (remainingItems.length > 0) {
+          try {
+            const tokenLocal = localStorage.getItem('token');
+            if (tokenLocal) {
+              const payload = JSON.parse(atob(tokenLocal.split('.')[1]));
+              const userId = payload.user_id;
+              if (userId) {
+                const cartKey = `vasa-cart-${userId}`;
+                const payloadToSave = {
+                  source: 'checkout',
+                  savedAt: Date.now(),
+                  items: remainingItems
+                };
+                localStorage.setItem(cartKey, JSON.stringify(payloadToSave));
+                console.debug('[Checkout] Saved remaining items to localStorage (checkout backup)', { cartKey, count: remainingItems.length });
+              }
+            }
+          } catch (innerErr) {
+            console.debug('[Checkout] Failed to save remaining items', innerErr);
+          }
+        }
+      } catch (err) {
+        console.debug('[Checkout] Failed to compute remaining items', err);
+      }
 
   // Remove the single-item checkout marker if present (order completed)
   try { sessionStorage.removeItem('checkout-item'); } catch {}
+
+  // Notify other parts of the app (including admin pages) to refresh product data.
+  // This helps admin UI reflect updated stock counts immediately after an order.
+  try {
+    // Wake up server-side cache by fetching latest products (best-effort)
+    try { void ApiClient.getPerfumes(); } catch (e) { /* ignore */ }
+  } catch (e) {}
+  try { window.dispatchEvent(new CustomEvent('productsChanged')); } catch (e) { /* ignore */ }
 
   // Redirect to home page with success message (no order detail page implemented)
   navigate('/');
@@ -434,11 +535,10 @@ export default function Checkout() {
                   <div className="space-y-3">
                     {checkoutItems.map((item: any, index: number) => {
                       const id = item.perfume_id ?? item.id ?? index;
-                      const size = item.selectedSize ?? item.size ?? 'default';
                       const imgSrc = item.image ?? item.images?.[0] ?? item.photo_url ?? '/images/placeholder.png';
                       const name = item.name ?? item.perfume_name ?? 'Product';
                       return (
-                        <div key={`${id}-${size}-${index}`} className="flex gap-3">
+                        <div key={`${id}-${index}`} className="flex gap-3">
                           <img
                             src={imgSrc}
                             alt={name}
@@ -451,10 +551,10 @@ export default function Checkout() {
                           <div className="flex-1">
                             <p className="font-medium text-sm">{name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {size} × {item.quantity}
+                              × {item.quantity}
                             </p>
                             <p className="text-sm font-semibold">
-                              ₹{(item.price * item.quantity).toFixed(2)}
+                              {formatPriceINR(item.price * item.quantity)}
                             </p>
                           </div>
                         </div>
@@ -467,15 +567,15 @@ export default function Checkout() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>Subtotal</span>
-                      <span>₹{checkoutTotal.toFixed(2)}</span>
+                      <span>{formatPriceINR(checkoutTotal)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Shipping</span>
-                      <span>₹{shippingCost.toFixed(2)}</span>
+                      <span>{formatPriceINR(shippingCost)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Tax</span>
-                      <span>₹{tax.toFixed(2)}</span>
+                      <span>{formatPriceINR(tax)}</span>
                     </div>
                   </div>
 
@@ -483,7 +583,7 @@ export default function Checkout() {
 
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>₹{finalTotal.toFixed(2)}</span>
+                    <span>{formatPriceINR(finalTotal)}</span>
                   </div>
 
                   <Button

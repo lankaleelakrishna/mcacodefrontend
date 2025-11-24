@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import FAQ from "@/components/FAQ";
+import Testimonials from "@/components/Testimonials";
 import ProductCard from "@/components/ProductCard";
 // Removed static products import
 import { ApiClient } from "@/lib/api-client";
@@ -33,6 +35,7 @@ const Products = () => {
   const [sortBy, setSortBy] = useState(section === "new-arrivals" ? "newest" : "popular");
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -54,56 +57,17 @@ const Products = () => {
         }
 
         if (response && response.perfumes) {
-          let perfumes = response.perfumes;
-
-          // Ensure discounts from special-offers are applied across all sections.
-          try {
-            const specialRes = await ApiClient.getSpecialOffers();
-            const specialMap = new Map<number, any>();
-            (specialRes?.perfumes || []).forEach((s: any) => specialMap.set(Number(s.id), s));
-            perfumes = (perfumes || []).map((p: any) => {
-              const s = specialMap.get(Number(p.id));
-              if (!s) return p;
-              return {
-                ...p,
-                // prefer explicit discounted fields from special offers endpoint
-                price: s.discounted_price ?? s.price ?? p.price,
-                originalPrice: s.original_price ?? s.originalPrice ?? p.originalPrice ?? p.original_price,
-                discountPercentage: s.discount_percentage ?? s.discountPercentage ?? p.discountPercentage,
-                discountEndDate: s.end_date ? new Date(s.end_date) : (s.discountEndDate ?? p.discountEndDate ?? p.end_date),
-              };
-            });
-          } catch (e) {
-            // ignore special offers merge failures
-          }
-
-          setAllProducts(perfumes);
+          setAllProducts(response.perfumes);
         }
       } catch (err) {
         console.error('Failed to load products:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load products');
         setAllProducts([]);
       } finally {
         setLoading(false);
       }
     };
     load();
-    // Polling: refresh products periodically to pick up backend changes
-    const interval = setInterval(() => {
-      load();
-    }, 30000); // 30s
-
-    // Listen to storage events so admin actions in other tabs trigger immediate reload
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'products:updated') {
-        load();
-      }
-    };
-    window.addEventListener('storage', onStorage);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', onStorage);
-    };
   }, [section]);
 
   const filteredProducts = allProducts
@@ -144,31 +108,31 @@ const Products = () => {
       
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+        <div className="mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
             {section === "best-sellers" ? "Best Sellers" :
              section === "new-arrivals" ? "New Arrivals" :
              section === "special-offers" ? "Special Offers" :
-             "All Products"}
+             "All Perfumes"}
           </h1>
-          <p className="text-base md:text-lg text-muted-foreground">
+          <p className="text-lg text-muted-foreground">
             {section === "best-sellers" ? "Our most popular fragrances loved by customers" :
              section === "new-arrivals" ? "The latest additions to our luxury collection" :
              section === "special-offers" ? "Exclusive deals on premium fragrances" :
-             "Discover our complete collection of products"}
+             "Discover our complete collection of luxury fragrances"}
           </p>
         </div>
 
         {/* Filters */}
         <div className="bg-card rounded-lg p-6 mb-8 shadow-elegant">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search products..."
+                  placeholder="Search perfumes..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -183,13 +147,12 @@ const Products = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Tops">Tops</SelectItem>
-                <SelectItem value="Lehangas">Lehangas</SelectItem>
-                <SelectItem value="Sarees">Sarees</SelectItem>
+                <SelectItem value="Men">Men</SelectItem>
+                <SelectItem value="Women">Women</SelectItem>
+                <SelectItem value="Unisex">Unisex</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* NOTE: Fragrance Type filter removed per request */}
 
             {/* Sort By */}
             <Select value={sortBy} onValueChange={setSortBy}>
@@ -209,22 +172,52 @@ const Products = () => {
 
         {/* Results Count */}
         <div className="mb-6">
-            <p className="text-muted-foreground">
-            Showing {filteredProducts.length} of {allProducts.length} products
+          <p className="text-muted-foreground">
+            {loading ? "Loading products..." : error ? "Failed to load products" : `Showing ${filteredProducts.length} of ${allProducts.length} perfumes`}
           </p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-lg border border-destructive/20">
+            <p className="font-medium">Error loading products</p>
+            <p className="text-sm mt-1">{error}</p>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="mt-3"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {loading ? (
+            // Loading skeleton
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-lg overflow-hidden shadow-elegant animate-pulse">
+                <div className="h-64 bg-muted" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-muted rounded w-3/4" />
+                  <div className="h-4 bg-muted rounded w-1/2" />
+                  <div className="h-8 bg-muted rounded" />
+                </div>
+              </div>
+            ))
+          ) : (
+            filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))
+          )}
         </div>
 
         {/* No Results */}
-        {filteredProducts.length === 0 && (
+        {!loading && filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-xl text-muted-foreground mb-4">No products found matching your criteria</p>
+            <p className="text-xl text-muted-foreground mb-4">No perfumes found matching your criteria</p>
             <Button onClick={() => {
               setSearchQuery("");
               setCategoryFilter("all");
@@ -235,6 +228,9 @@ const Products = () => {
         )}
       </main>
 
+      <Testimonials />
+      {/* FAQ above footer on products page */}
+      <FAQ />
       <Footer />
     </div>
   );
